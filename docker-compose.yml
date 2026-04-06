@@ -19,6 +19,8 @@ services:
     container_name: bav-be
     ports:
       - "8080:8080"
+    env_file:
+      - ./be/.env
     environment:
       PORT: 8080
       CORS_ORIGIN: http://localhost:5173
@@ -28,9 +30,24 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: sentimentx
       AUTO_INIT_DB: true
+      AI_SERVICE_URL: http://ai:8000
     depends_on:
       postgres:
         condition: service_healthy
+      ai:
+        condition: service_started
+
+  ai:
+    build:
+      context: ./be
+      dockerfile: Dockerfile.ai
+    container_name: bav-ai
+    env_file:
+      - ./be/.env
+    ports:
+      - "8000:8000"
+    environment:
+      AI_SERVICE_NAME: sentimentx-ai
 
   postgres:
     image: postgres:16-alpine

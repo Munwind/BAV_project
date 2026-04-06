@@ -1,9 +1,8 @@
 require('dotenv').config()
 
 const app = require('./app')
+const env = require('./config/env')
 const { initializeDatabase } = require('./services/crawler-service')
-
-const port = Number(process.env.PORT || 8080)
 
 async function initializeDatabaseWithRetry(maxAttempts = 10) {
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -22,12 +21,12 @@ async function initializeDatabaseWithRetry(maxAttempts = 10) {
 }
 
 async function bootstrap() {
-  if (process.env.AUTO_INIT_DB === 'true') {
+  if (env.autoInitDb) {
     await initializeDatabaseWithRetry()
   }
 
-  app.listen(port, () => {
-    console.log(`Backend server running on http://localhost:${port}`)
+  app.listen(env.port, () => {
+    console.log(`Backend server running on http://localhost:${env.port}`)
   })
 }
 

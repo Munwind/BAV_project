@@ -7,8 +7,10 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
+    "test": "node --test --test-concurrency=1",
     "db:init": "node src/scripts/init-db.js",
-    "crawl": "node src/scripts/crawl-feeds.js"
+    "crawl": "node src/scripts/crawl-feeds.js",
+    "entities:reindex": "node src/scripts/reindex-entities.js"
   },
   "keywords": [
     "express",

@@ -1,9 +1,14 @@
 const fs = require('fs/promises')
+const http = require('http')
+const https = require('https')
 const path = require('path')
+const { constants } = require('crypto')
 const Parser = require('rss-parser')
 const { decode } = require('he')
+const env = require('../config/env')
 const crawlerSources = require('../config/crawler-sources')
 const { query } = require('../db')
+const { seedKnownEntities, syncArticleEntitiesForArticle } = require('./entity-service')
 
 const parser = new Parser({
   headers: {
@@ -11,8 +16,196 @@ const parser = new Parser({
   },
 })
 
+function decodeBuffer(buffer, contentType = '') {
+  const lowerType = String(contentType || '').toLowerCase()
+  const bomUtf16Le = buffer.length >= 2 && buffer[0] === 0xff && buffer[1] === 0xfe
+  const bomUtf16Be = buffer.length >= 2 && buffer[0] === 0xfe && buffer[1] === 0xff
+
+  if (bomUtf16Le || lowerType.includes('utf-16')) {
+    return buffer.toString('utf16le')
+  }
+
+  if (bomUtf16Be) {
+    const swapped = Buffer.allocUnsafe(buffer.length)
+    for (let index = 0; index < buffer.length; index += 2) {
+      swapped[index] = buffer[index + 1]
+      swapped[index + 1] = buffer[index]
+    }
+    return swapped.toString('utf16le')
+  }
+
+  return buffer.toString('utf8')
+}
+
 function stripHtml(value = '') {
   return decode(value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim())
+}
+
+function sanitizeXml(xml = '') {
+  return xml
+    .replace(/&(?!#\d+;|#x[a-fA-F0-9]+;|[a-zA-Z][a-zA-Z0-9]+;)/g, '&amp;')
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+}
+
+function fetchFeedXml(url, redirects = 0) {
+  const client = url.startsWith('https:') ? https : http
+  const agent = url.startsWith('https:')
+    ? new https.Agent({
+      secureOptions: constants.SSL_OP_LEGACY_SERVER_CONNECT,
+    })
+    : undefined
+
+  return new Promise((resolve, reject) => {
+    const request = client.get(
+      url,
+      {
+        headers: {
+          'User-Agent': 'SentimentXBot/1.0 (+https://sentimentx.local)',
+          Accept: 'application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8',
+        },
+        agent,
+      },
+      (response) => {
+        if (response.statusCode && response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+          response.resume()
+          if (redirects >= 5) {
+            reject(new Error('Feed request exceeded redirect limit'))
+            return
+          }
+          resolve(fetchFeedXml(response.headers.location, redirects + 1))
+          return
+        }
+
+        if (response.statusCode && response.statusCode >= 400) {
+          response.resume()
+          reject(new Error(`Feed request failed with status ${response.statusCode}`))
+          return
+        }
+
+        const chunks = []
+        response.on('data', (chunk) => chunks.push(chunk))
+        response.on('end', () => resolve(decodeBuffer(Buffer.concat(chunks), response.headers['content-type'])))
+        response.on('error', reject)
+      },
+    )
+
+    request.setTimeout(env.feedRequestTimeoutMs, () => {
+      request.destroy(new Error(`Feed request timed out after ${env.feedRequestTimeoutMs}ms`))
+    })
+    request.on('error', reject)
+  })
+}
+
+function extractTagValue(xml, tagName) {
+  const match = xml.match(new RegExp(`<${tagName}>([\\s\\S]*?)</${tagName}>`, 'i'))
+  return match ? decode(match[1].trim()) : null
+}
+
+function extractMetaContent(html, patterns) {
+  for (const pattern of patterns) {
+    const match = html.match(pattern)
+    if (match?.[1]) {
+      return decode(match[1].trim())
+    }
+  }
+
+  return null
+}
+
+function parseFeedXmlFallback(xml) {
+  const itemMatches = [...xml.matchAll(/<item\b[\s\S]*?<\/item>/gi)]
+  const items = itemMatches.map((match) => {
+    const itemXml = match[0]
+    const title = extractTagValue(itemXml, 'title')
+    const link = extractTagValue(itemXml, 'link')
+    const guid = extractTagValue(itemXml, 'guid') || link
+    const description = extractTagValue(itemXml, 'description')
+    const pubDate = extractTagValue(itemXml, 'pubDate')
+
+    return {
+      title,
+      link,
+      guid,
+      description,
+      summary: description,
+      content: description,
+      pubDate,
+      isoDate: pubDate ? new Date(pubDate).toISOString() : null,
+    }
+  })
+
+  return {
+    title: extractTagValue(xml, 'title') || 'RSS Feed',
+    link: extractTagValue(xml, 'link') || null,
+    items: items.filter((item) => item.title || item.link),
+  }
+}
+
+async function parseFeedXml(xml) {
+  const sanitized = sanitizeXml(xml)
+
+  try {
+    return await parser.parseString(sanitized)
+  } catch (error) {
+    return parseFeedXmlFallback(sanitized)
+  }
+}
+
+function buildFallbackArticle(source, url, articleHtml) {
+  const title = extractMetaContent(articleHtml, [
+    /<meta\s+property="og:title"\s+content="([^"]+)"/i,
+    /<meta\s+name="title"\s+content="([^"]+)"/i,
+    /<title>([^<]+)<\/title>/i,
+  ])
+  const description = extractMetaContent(articleHtml, [
+    /<meta\s+property="og:description"\s+content="([^"]+)"/i,
+    /<meta\s+name="description"\s+content="([^"]+)"/i,
+  ])
+  const publishedAt =
+    extractMetaContent(articleHtml, [
+      /<meta\s+property="article:published_time"\s+content="([^"]+)"/i,
+      /"datePublished":"([^"]+)"/i,
+      /<meta\s+name="pubdate"\s+content="([^"]+)"/i,
+    ])
+    || new Date().toISOString()
+  const imageUrl = extractMetaContent(articleHtml, [
+    /<meta\s+property="og:image"\s+content="([^"]+)"/i,
+  ])
+
+  return {
+    title: stripHtml(title || ''),
+    link: url,
+    guid: url,
+    description: description || '',
+    summary: description || '',
+    content: description || '',
+    pubDate: publishedAt,
+    isoDate: new Date(publishedAt).toISOString(),
+    imageUrl,
+    sourceName: source.name,
+  }
+}
+
+async function parseListingFallback(source) {
+  if (!source.fallbackListingUrl) {
+    return []
+  }
+
+  const html = await fetchFeedXml(source.fallbackListingUrl)
+  const matches = [...html.matchAll(/https:\/\/baodautu\.vn\/[^"'\\s>]+-d\d+\.html/g)]
+  const urls = [...new Set(matches.map((match) => match[0]))].slice(0, 18)
+  const items = []
+
+  for (const url of urls) {
+    try {
+      const articleHtml = await fetchFeedXml(url)
+      items.push(buildFallbackArticle(source, url, articleHtml))
+    } catch (_error) {
+      continue
+    }
+  }
+
+  return items
 }
 
 function normalizeImageUrl(item) {
@@ -40,7 +233,7 @@ function normalizeArticle(source, item, feedMeta) {
     descriptionText: stripHtml(descriptionHtml),
     articleUrl: item.link || item.guid || null,
     guid: item.guid || item.link || null,
-    imageUrl: normalizeImageUrl(item),
+    imageUrl: item.imageUrl || normalizeImageUrl(item),
     authorName: item.creator || item.author || null,
     publishedAt: item.isoDate || item.pubDate || null,
     rawItem: item,
@@ -51,6 +244,7 @@ async function initializeDatabase() {
   const schemaPath = path.join(__dirname, '..', '..', 'sql', 'init.sql')
   const schemaSql = await fs.readFile(schemaPath, 'utf8')
   await query(schemaSql)
+  await seedKnownEntities()
 }
 
 async function upsertSource(source) {
@@ -82,7 +276,7 @@ async function upsertSource(source) {
 }
 
 async function upsertArticle(sourceId, article) {
-  await query(
+  const result = await query(
     `
       INSERT INTO articles (
         source_id,
@@ -96,9 +290,12 @@ async function upsertArticle(sourceId, article) {
         published_at,
         feed_title,
         feed_link,
-        raw_payload
+        raw_payload,
+        first_seen_at,
+        last_seen_at,
+        crawl_count
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, NOW(), NOW(), 1)
       ON CONFLICT (guid)
       DO UPDATE SET
         article_url = EXCLUDED.article_url,
@@ -111,7 +308,10 @@ async function upsertArticle(sourceId, article) {
         feed_title = EXCLUDED.feed_title,
         feed_link = EXCLUDED.feed_link,
         raw_payload = EXCLUDED.raw_payload,
+        last_seen_at = NOW(),
+        crawl_count = articles.crawl_count + 1,
         updated_at = NOW()
+      RETURNING id
     `,
     [
       sourceId,
@@ -128,12 +328,21 @@ async function upsertArticle(sourceId, article) {
       JSON.stringify(article.rawItem),
     ],
   )
+
+  return result.rows[0].id
 }
 
 async function crawlSingleFeed(source) {
   const sourceId = await upsertSource(source)
-  const feed = await parser.parseURL(source.rssUrl)
-  const items = (feed.items || []).map((item) => normalizeArticle(source, item, feed))
+  const xml = await fetchFeedXml(source.rssUrl)
+  const feed = await parseFeedXml(xml)
+  let feedItems = feed.items || []
+
+  if (!feedItems.length && source.fallbackListingUrl) {
+    feedItems = await parseListingFallback(source)
+  }
+
+  const items = feedItems.map((item) => normalizeArticle(source, item, feed))
   let storedCount = 0
 
   for (const article of items) {
@@ -141,7 +350,8 @@ async function crawlSingleFeed(source) {
       continue
     }
 
-    await upsertArticle(sourceId, article)
+    const articleId = await upsertArticle(sourceId, article)
+    await syncArticleEntitiesForArticle({ articleId, article })
     storedCount += 1
   }
 
@@ -159,8 +369,18 @@ async function crawlAllFeeds() {
   const runs = []
 
   for (const source of crawlerSources) {
-    const result = await crawlSingleFeed(source)
-    runs.push(result)
+    try {
+      const result = await crawlSingleFeed(source)
+      runs.push(result)
+    } catch (error) {
+      runs.push({
+        sourceKey: source.key,
+        sourceName: source.name,
+        fetchedCount: 0,
+        storedCount: 0,
+        error: error.message,
+      })
+    }
   }
 
   return {
@@ -170,34 +390,34 @@ async function crawlAllFeeds() {
   }
 }
 
-async function listArticles({ limit = 25, sourceKey } = {}) {
-  const cappedLimit = Math.min(Math.max(limit, 1), 100)
+async function listArticles({ limit = 25, sourceKey, search, dateFrom, dateTo } = {}) {
+  const cappedLimit = Math.min(Math.max(limit, 1), 500)
+  const params = []
+  const conditions = []
 
   if (sourceKey) {
-    const result = await query(
-      `
-        SELECT
-          a.id,
-          s.source_key,
-          s.source_name,
-          a.title,
-          a.description_text,
-          a.article_url,
-          a.image_url,
-          a.author_name,
-          a.published_at,
-          a.created_at
-        FROM articles a
-        JOIN rss_sources s ON s.id = a.source_id
-        WHERE s.source_key = $1
-        ORDER BY a.published_at DESC NULLS LAST, a.created_at DESC
-        LIMIT $2
-      `,
-      [sourceKey, cappedLimit],
-    )
-
-    return result.rows
+    params.push(sourceKey)
+    conditions.push(`s.source_key = $${params.length}`)
   }
+
+  if (search) {
+    params.push(`%${search}%`)
+    conditions.push(
+      `(a.title ILIKE $${params.length} OR COALESCE(a.description_text, '') ILIKE $${params.length} OR COALESCE(a.author_name, '') ILIKE $${params.length})`,
+    )
+  }
+
+  if (dateFrom) {
+    params.push(dateFrom)
+    conditions.push(`COALESCE(a.published_at, a.created_at) >= $${params.length}`)
+  }
+
+  if (dateTo) {
+    params.push(dateTo)
+    conditions.push(`COALESCE(a.published_at, a.created_at) < $${params.length}`)
+  }
+
+  params.push(cappedLimit)
 
   const result = await query(
     `
@@ -214,10 +434,11 @@ async function listArticles({ limit = 25, sourceKey } = {}) {
         a.created_at
       FROM articles a
       JOIN rss_sources s ON s.id = a.source_id
+      ${conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''}
       ORDER BY a.published_at DESC NULLS LAST, a.created_at DESC
-      LIMIT $1
+      LIMIT $${params.length}
     `,
-    [cappedLimit],
+    params,
   )
 
   return result.rows
