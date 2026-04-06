@@ -1,0 +1,53 @@
+services:
+  fe:
+    build:
+      context: ./fe
+      dockerfile: Dockerfile
+    container_name: bav-fe
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_BASE_URL: http://localhost:8080/api
+    depends_on:
+      be:
+        condition: service_started
+
+  be:
+    build:
+      context: ./be
+      dockerfile: Dockerfile
+    container_name: bav-be
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: 8080
+      CORS_ORIGIN: http://localhost:5173
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: sentimentx
+      AUTO_INIT_DB: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: sentimentx-postgres
+    ports:
+      - "55432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: sentimentx
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d sentimentx"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  postgres_data:
