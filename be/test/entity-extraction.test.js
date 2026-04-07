@@ -26,3 +26,13 @@ test('extractEntitiesFromArticle ignores vague non-company phrases', () => {
   assert.equal(entities.length, 0)
 })
 
+test('extractEntitiesFromArticle resolves ticker-only seeded aliases for TPB, TRA, and OIL', () => {
+  const entities = extractEntitiesFromArticle({
+    title: 'TPB, TRA va OIL dong loat duoc nha dau tu quan tam',
+    description_text: 'Dong tien xoay quanh cac ma TPB TRA OIL trong phien gan day.',
+  })
+
+  assert.ok(entities.some((item) => item.canonicalName === 'TPBank' && item.ticker === 'TPB'))
+  assert.ok(entities.some((item) => item.canonicalName === 'Traphaco' && item.ticker === 'TRA'))
+  assert.ok(entities.some((item) => item.canonicalName === 'PVOIL' && item.ticker === 'OIL'))
+})

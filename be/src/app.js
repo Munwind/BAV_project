@@ -11,6 +11,7 @@ const {
 const { askAi, checkAiHealth, extractCompanyCandidates } = require('./services/ai-service')
 const { getTrackedCompanies, getAlerts, getOverview } = require('./services/analytics-service')
 const { findCompanyEntityByText } = require('./services/entity-service')
+const { searchAll } = require('./services/search-service')
 
 const app = express()
 
@@ -147,6 +148,20 @@ app.get('/api/alerts', async (req, res, next) => {
     const limit = Number(req.query.limit || 120)
     const items = await getAlerts(limit)
     res.json({ ok: true, total: items.length, items })
+  } catch (error) {
+    next(error)
+  }
+})
+
+app.get('/api/search', async (req, res, next) => {
+  try {
+    const q = String(req.query.q || '').trim()
+    const results = await searchAll(q)
+    res.json({
+      ok: true,
+      query: q,
+      ...results,
+    })
   } catch (error) {
     next(error)
   }

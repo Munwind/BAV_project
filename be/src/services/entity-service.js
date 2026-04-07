@@ -66,7 +66,7 @@ function buildSeedCandidates(text) {
 
   return seeds
     .map((seed) => {
-      const aliases = [seed.name, ...(seed.aliases || [])].filter(Boolean).map((item) => normalizeText(item))
+      const aliases = [seed.name, ...(seed.aliases || []), seed.ticker].filter(Boolean).map((item) => normalizeText(item))
       const mentionCount = aliases.reduce((max, alias) => Math.max(max, countOccurrences(normalizedText, alias)), 0)
 
       if (!mentionCount) {
@@ -668,6 +668,58 @@ async function listEntityMentionsForArticleIds(articleIds, { entityType = 'compa
   return result.rows
 }
 
+async function listArticlesForEntity(entityId, { limit = 25, sourceKey, dateFrom, dateTo } = {}) {
+  if (!entityId) {
+    return []
+  }
+
+  const cappedLimit = Math.min(Math.max(limit, 1), 500)
+  const params = [entityId]
+  const conditions = ['ae.entity_id = $1']
+
+  if (sourceKey) {
+    params.push(sourceKey)
+    conditions.push(`s.source_key = $${params.length}`)
+  }
+
+  if (dateFrom) {
+    params.push(dateFrom)
+    conditions.push(`COALESCE(a.published_at, a.created_at) >= $${params.length}`)
+  }
+
+  if (dateTo) {
+    params.push(dateTo)
+    conditions.push(`COALESCE(a.published_at, a.created_at) < $${params.length}`)
+  }
+
+  params.push(cappedLimit)
+
+  const result = await query(
+    `
+      SELECT
+        a.id,
+        s.source_key,
+        s.source_name,
+        a.title,
+        a.description_text,
+        a.article_url,
+        a.image_url,
+        a.author_name,
+        a.published_at,
+        a.created_at
+      FROM article_entities ae
+      JOIN articles a ON a.id = ae.article_id
+      JOIN rss_sources s ON s.id = a.source_id
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY a.published_at DESC NULLS LAST, a.created_at DESC
+      LIMIT $${params.length}
+    `,
+    params,
+  )
+
+  return result.rows
+}
+
 async function lookupCompanyEntityByNormalizedName(normalizedName) {
   if (!normalizedName) {
     return null
@@ -840,6 +892,7 @@ module.exports = {
   seedKnownEntities,
   syncArticleEntitiesForArticle,
   listEntityMentionsForArticleIds,
+  listArticlesForEntity,
   findCompanyEntityByText,
   reindexAllArticleEntities,
 }

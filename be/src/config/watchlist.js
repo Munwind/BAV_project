@@ -83,4 +83,11 @@ module.exports = [
     ticker: 'SKG',
     aliases: ['superdong', 'superdong kiên giang', 'superdong kien giang', 'skg'],
   },
+  {
+    key: 'tpbank',
+    name: 'TPBank',
+    industry: 'Banking',
+    ticker: 'TPB',
+    aliases: ['tpbank', 'tpb', 'tien phong bank', 'ngan hang tien phong', 'ngan hang tmcp tien phong'],
+  },
 ]

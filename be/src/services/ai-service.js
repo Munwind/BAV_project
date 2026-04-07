@@ -1,7 +1,7 @@
 const env = require('../config/env')
 const { checkAiHealth, extractCompanyCandidates } = require('./ai-client')
 const { listArticles } = require('./crawler-service')
-const { findCompanyEntityByText, listEntityMentionsForArticleIds } = require('./entity-service')
+const { findCompanyEntityByText, listArticlesForEntity } = require('./entity-service')
 const { normalizeText } = require('./sentiment-heuristics')
 
 const SMALL_TALK_PATTERNS = [
@@ -122,24 +122,19 @@ async function buildArticleContext({ question, sourceKey, limit, companyName, en
     }
   }
 
-  const recentArticles = await listArticles({
-    limit: retrievalPlan.fetchLimit,
-    sourceKey: retrievalPlan.sourceKey,
-    dateFrom: retrievalPlan.dateFrom,
-    dateTo: retrievalPlan.dateTo,
-  })
-
-  let filteredArticles = recentArticles
-
-  if (retrievalPlan.company && recentArticles.length) {
-    const articleIds = recentArticles.map((article) => Number(article.id))
-    const mentionRows = await listEntityMentionsForArticleIds(articleIds, {
-      entityType: 'company',
-      entityId: retrievalPlan.company.id,
-    })
-    const matchedArticleIds = new Set(mentionRows.map((item) => String(item.article_id)))
-    filteredArticles = recentArticles.filter((article) => matchedArticleIds.has(String(article.id)))
-  }
+  const filteredArticles = retrievalPlan.company
+    ? await listArticlesForEntity(retrievalPlan.company.id, {
+        limit: retrievalPlan.fetchLimit,
+        sourceKey: retrievalPlan.sourceKey,
+        dateFrom: retrievalPlan.dateFrom,
+        dateTo: retrievalPlan.dateTo,
+      })
+    : await listArticles({
+        limit: retrievalPlan.fetchLimit,
+        sourceKey: retrievalPlan.sourceKey,
+        dateFrom: retrievalPlan.dateFrom,
+        dateTo: retrievalPlan.dateTo,
+      })
 
   const articles = rankArticles(question, filteredArticles).slice(0, env.aiArticleLimit)
 
@@ -203,4 +198,6 @@ module.exports = {
   checkAiHealth,
   classifyInteractionMode,
   extractCompanyCandidates,
+  buildArticleContext,
+  buildRetrievalPlan,
 }

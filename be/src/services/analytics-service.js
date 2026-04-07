@@ -26,6 +26,102 @@ function getTrendLabel(recentMentions, lifetimeMentions) {
   return '0'
 }
 
+function buildRiskForecast({
+  score,
+  negativeSignals,
+  recentMentions,
+  last24hMentions,
+  sourceCount,
+  lifetimeMentions,
+}) {
+  const drivers = []
+  let forecastScore24h = 0
+  let forecastScore7d = 0
+
+  if (negativeSignals >= 3) {
+    forecastScore24h += 4
+    forecastScore7d += 4
+    drivers.push('Negative signals elevated')
+  } else if (negativeSignals >= 1) {
+    forecastScore24h += 2
+    forecastScore7d += 2
+    drivers.push('Negative coverage present')
+  }
+
+  if (last24hMentions >= 4) {
+    forecastScore24h += 3
+    forecastScore7d += 2
+    drivers.push('24h media activity spiking')
+  } else if (last24hMentions >= 2) {
+    forecastScore24h += 2
+    forecastScore7d += 1
+    drivers.push('24h mentions increasing')
+  }
+
+  if (recentMentions >= 6) {
+    forecastScore24h += 2
+    forecastScore7d += 3
+    drivers.push('7d discussion volume elevated')
+  } else if (recentMentions >= 3) {
+    forecastScore7d += 2
+    drivers.push('7d discussion above baseline')
+  }
+
+  if (sourceCount >= 4) {
+    forecastScore24h += 1
+    forecastScore7d += 2
+    drivers.push('Source diversity widening')
+  } else if (sourceCount >= 2) {
+    forecastScore7d += 1
+  }
+
+  if (score <= 42) {
+    forecastScore24h += 3
+    forecastScore7d += 3
+    drivers.push('Sentiment score already weak')
+  } else if (score <= 55) {
+    forecastScore24h += 1
+    forecastScore7d += 2
+    drivers.push('Sentiment under pressure')
+  }
+
+  if (lifetimeMentions >= 12 && recentMentions >= 4) {
+    forecastScore7d += 1
+  }
+
+  function toLevel(value) {
+    if (value >= 7) return 'high'
+    if (value >= 4) return 'medium'
+    return 'low'
+  }
+
+  const level24h = toLevel(forecastScore24h)
+  const level7d = toLevel(forecastScore7d)
+  const confidence = clamp(
+    48
+      + Math.min(sourceCount, 5) * 7
+      + Math.min(recentMentions, 6) * 4
+      + Math.min(lifetimeMentions, 10),
+    52,
+    92,
+  )
+
+  const summary =
+    level24h === 'high' || level7d === 'high'
+      ? 'Risk forecast indicates elevated monitoring need in the next 24h-7d.'
+      : level24h === 'medium' || level7d === 'medium'
+        ? 'Risk forecast suggests moderate monitoring in the next 24h-7d.'
+        : 'Risk forecast remains stable unless new negative coverage appears.'
+
+  return {
+    level24h,
+    level7d,
+    confidence,
+    drivers: drivers.slice(0, 3),
+    summary,
+  }
+}
+
 async function getCompanyMentionRows() {
   const result = await query(
     `
@@ -106,6 +202,14 @@ function buildCompanyMetrics(entityRows) {
   const sourceCount = new Set(orderedRows.map((row) => row.article.source_key)).size
   const score = clamp(56 + recentMentions * 4 + totalSignal * 7 + Math.min(sourceCount, 4), 18, 92)
   const severity = detectSeverity(score, negativeSignals, recentMentions)
+  const forecast = buildRiskForecast({
+    score,
+    negativeSignals,
+    recentMentions,
+    last24hMentions,
+    sourceCount,
+    lifetimeMentions,
+  })
   const first = orderedRows[0]
 
   return {
@@ -131,6 +235,12 @@ function buildCompanyMetrics(entityRows) {
     negativeSignals,
     sourceModes: [...new Set(orderedRows.map((row) => row.source_mode).filter(Boolean))],
     lastSeenAt: latestArticle?.last_seen_at || latestArticle?.published_at || null,
+    forecast,
+    forecastRisk24h: forecast.level24h,
+    forecastRisk7d: forecast.level7d,
+    forecastConfidence: forecast.confidence,
+    forecastDrivers: forecast.drivers,
+    forecastSummary: forecast.summary,
   }
 }
 
@@ -183,6 +293,11 @@ async function getAlerts() {
         lifetimeMentions: company.lifetimeMentions,
         score: company.score,
         sentimentLabel: company.sentimentLabel,
+        forecastRisk24h: company.forecastRisk24h,
+        forecastRisk7d: company.forecastRisk7d,
+        forecastConfidence: company.forecastConfidence,
+        forecastDrivers: company.forecastDrivers,
+        forecastSummary: company.forecastSummary,
         publishedAt: company.latestArticle?.published_at || null,
         articleUrl: company.latestArticle?.article_url || null,
       }
@@ -222,6 +337,7 @@ async function getOverview() {
 }
 
 module.exports = {
+  buildRiskForecast,
   getTrackedCompanies,
   getAlerts,
   getOverview,

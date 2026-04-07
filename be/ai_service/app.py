@@ -49,6 +49,17 @@ ner_client = OpenAI(api_key=NER_API_KEY, base_url=NER_BASE_URL)
 app = FastAPI(title=AI_SERVICE_NAME)
 
 
+def log_ner_event(mode: str, text: str, companies: list[dict[str, Any]] | None = None, errors: list[str] | None = None) -> None:
+    payload = {
+        "event": "ner_extract",
+        "mode": mode,
+        "input_preview": text[:120],
+        "company_count": len(companies or []),
+        "errors": errors or [],
+    }
+    print(json.dumps(payload, ensure_ascii=False))
+
+
 class Article(BaseModel):
     id: int | None = None
     source_key: str | None = None
@@ -370,6 +381,43 @@ def normalize_company_candidates(payload: dict[str, Any]) -> list[dict[str, Any]
     return sorted(companies, key=lambda item: (-item["confidence"], item["name"]))
 
 
+def build_heuristic_candidates(text: str) -> list[dict[str, Any]]:
+    seen: set[tuple[str, str | None]] = set()
+    companies: list[dict[str, Any]] = []
+
+    for token in re.findall(r"\b[A-Z]{2,5}\b", text):
+        key = (token.casefold(), token)
+        if key in seen:
+            continue
+        seen.add(key)
+        companies.append(
+            {
+                "name": token,
+                "ticker": token,
+                "aliases": [],
+                "confidence": 0.42,
+            }
+        )
+
+    for token in re.findall(r"\b[A-Z][A-Za-z]{2,20}(?:Bank|Group|Corp|Holdings|Capital|Airways|Pharma)?\b", text):
+        if token.isupper():
+            continue
+        key = (token.casefold(), None)
+        if key in seen:
+            continue
+        seen.add(key)
+        companies.append(
+            {
+                "name": token,
+                "ticker": None,
+                "aliases": [],
+                "confidence": 0.35,
+            }
+        )
+
+    return companies[:6]
+
+
 def extract_companies_from_text(text: str, locale: str, model: str | None) -> tuple[list[dict[str, Any]], str, Any]:
     system_prompt, user_prompt = build_text_ner_prompt(text, locale)
     answer, used_model, usage = generate_ner_answer(system_prompt, user_prompt, model)
@@ -382,6 +430,32 @@ def extract_companies_from_article(title: str, description_text: str, locale: st
     answer, used_model, usage = generate_ner_answer(system_prompt, user_prompt, model)
     payload = extract_json_object(answer)
     return normalize_company_candidates(payload), used_model, usage
+
+
+def extract_companies_with_fallback(text: str, locale: str, model: str | None) -> tuple[list[dict[str, Any]], str, Any, str]:
+    errors: list[str] = []
+
+    try:
+        companies, used_model, usage = extract_companies_from_text(text, locale, model)
+        log_ner_event("text", text, companies)
+        return companies, used_model, usage, "text"
+    except Exception as error:
+        errors.append(f"text:{error}")
+
+    try:
+        companies, used_model, usage = extract_companies_from_article(text, "", locale, model)
+        log_ner_event("article-fallback", text, companies, errors)
+        return companies, used_model, usage, "article-fallback"
+    except Exception as error:
+        errors.append(f"article-fallback:{error}")
+
+    heuristic_companies = build_heuristic_candidates(text)
+    if heuristic_companies:
+        log_ner_event("heuristic-fallback", text, heuristic_companies, errors)
+        return heuristic_companies, model or NER_MODEL, None, "heuristic-fallback"
+
+    log_ner_event("empty-fallback", text, [], errors)
+    return [], model or NER_MODEL, None, "empty-fallback"
 
 
 @app.get("/health")
@@ -399,14 +473,12 @@ def health() -> dict[str, str]:
 
 @app.post("/ner/extract")
 def ner_extract(request: NerRequest) -> dict[str, Any]:
-    try:
-        companies, used_model, usage = extract_companies_from_text(request.text, request.locale, request.model)
-    except Exception as error:
-        raise HTTPException(status_code=502, detail=f"OpenAI request failed: {error}") from error
+    companies, used_model, usage, mode = extract_companies_with_fallback(request.text, request.locale, request.model)
 
     return {
         "companies": companies,
         "model": used_model,
+        "mode": mode,
         "usage": {
             "input_tokens": getattr(usage, "input_tokens", None) if usage else None,
             "output_tokens": getattr(usage, "output_tokens", None) if usage else None,
