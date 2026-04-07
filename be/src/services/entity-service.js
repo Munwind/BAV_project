@@ -1,5 +1,7 @@
 const seeds = require('../config/watchlist')
+const { createHash } = require('crypto')
 const { query, withTransaction } = require('../db')
+const { extractArticleEntities } = require('./ai-client')
 const { normalizeText, countOccurrences, getSentimentSignal } = require('./sentiment-heuristics')
 
 const COMPANY_PREFIX_REGEX = /^(?:ctcp|công ty cổ phần|cong ty co phan|công ty cp|cong ty cp|công ty tnhh|cong ty tnhh|tập đoàn|tap doan|tổng công ty|tong cong ty|ngân hàng|ngan hang)\s+/i
@@ -172,6 +174,145 @@ function extractEntitiesFromArticle(article) {
   return [...deduped.values()]
 }
 
+function computeEntityContentHash(article) {
+  const content = JSON.stringify({
+    title: String(article?.title || '').trim(),
+    descriptionText: String(article?.descriptionText || article?.description_text || '').trim(),
+  })
+
+  return createHash('sha256').update(content).digest('hex')
+}
+
+async function getCachedAiCandidates(contentHash, runner = { query }) {
+  if (!contentHash) {
+    return null
+  }
+
+  const result = await runner.query(
+    `
+      SELECT response_payload
+      FROM ai_ner_cache
+      WHERE content_hash = $1
+      LIMIT 1
+    `,
+    [contentHash],
+  )
+
+  if (!result.rows[0]) {
+    return null
+  }
+
+  const payload = result.rows[0].response_payload
+  return Array.isArray(payload) ? payload : []
+}
+
+async function saveCachedAiCandidates(contentHash, companies, runner = { query }) {
+  if (!contentHash) {
+    return
+  }
+
+  await runner.query(
+    `
+      INSERT INTO ai_ner_cache (
+        content_hash,
+        model_name,
+        response_payload
+      )
+      VALUES ($1, $2, $3::jsonb)
+      ON CONFLICT (content_hash)
+      DO UPDATE SET
+        response_payload = EXCLUDED.response_payload,
+        updated_at = NOW()
+    `,
+    [contentHash, null, JSON.stringify(companies || [])],
+  )
+}
+
+function normalizeRemoteCandidate(candidate) {
+  const canonicalName = cleanEntityName(candidate?.name || '')
+  if (!isUsefulEntityName(canonicalName)) {
+    return null
+  }
+
+  const ticker = String(candidate?.ticker || '').trim().toUpperCase() || null
+  const confidence = Number(candidate?.confidence)
+  const aliases = Array.isArray(candidate?.aliases) ? candidate.aliases.filter(Boolean) : []
+  const rawText = aliases[0] || candidate?.name || canonicalName
+
+  return {
+    canonicalName,
+    normalizedName: normalizeText(canonicalName),
+    entityType: 'company',
+    industry: null,
+    ticker,
+    confidence: Number.isFinite(confidence) ? Math.min(Math.max(confidence, 0.51), 0.99) : 0.75,
+    sourceMode: 'ai-ner',
+    rawText,
+    mentionCount: 1,
+  }
+}
+
+async function resolveEntityCandidates(article, { contentHash = null, runner = { query } } = {}) {
+  const ruleCandidates = extractEntitiesFromArticle(article)
+  if (ruleCandidates.length) {
+    return {
+      candidates: ruleCandidates,
+      source: 'rule',
+    }
+  }
+
+  const cachedCandidates = await getCachedAiCandidates(contentHash, runner)
+  if (cachedCandidates) {
+    const normalizedCachedCandidates = []
+
+    for (const cachedCandidate of cachedCandidates) {
+      const candidate = normalizeRemoteCandidate(cachedCandidate)
+      if (candidate) {
+        normalizedCachedCandidates.push(candidate)
+      }
+    }
+
+    return {
+      candidates: normalizedCachedCandidates,
+      source: 'ai-cache',
+    }
+  }
+
+  const remoteCandidates = await extractArticleEntities(article)
+  await saveCachedAiCandidates(contentHash, remoteCandidates, runner)
+
+  if (remoteCandidates.length) {
+    const deduped = new Map()
+
+    for (const remoteCandidate of remoteCandidates) {
+      const candidate = normalizeRemoteCandidate(remoteCandidate)
+      if (!candidate) {
+        continue
+      }
+
+      const key = candidate.ticker ? `${candidate.normalizedName}:${candidate.ticker}` : candidate.normalizedName
+      if (!deduped.has(key)) {
+        deduped.set(key, candidate)
+        continue
+      }
+
+      mergeCandidate(deduped.get(key), candidate)
+    }
+
+    if (deduped.size) {
+      return {
+        candidates: [...deduped.values()],
+        source: 'ai-ner',
+      }
+    }
+  }
+
+  return {
+    candidates: [],
+    source: 'ai-ner',
+  }
+}
+
 function isCandidateGroundedInArticle(articleText, candidate) {
   const normalizedArticleText = normalizeText(articleText)
   const rawText = normalizeText(candidate.rawText || '')
@@ -302,16 +443,56 @@ async function upsertEntityAlias(entityId, alias, { sourceMode = 'seed', confide
   )
 }
 
-async function syncArticleEntitiesForArticle({ articleId, article }) {
+async function syncArticleEntitiesForArticle({ articleId, article, entityContentHash = null, skipIfUnchanged = false }) {
   return withTransaction(async (client) => {
     const runner = { query: client.query.bind(client) }
-    const candidates = extractEntitiesFromArticle(article)
+    const effectiveHash = entityContentHash || computeEntityContentHash(article)
+
+    if (skipIfUnchanged && effectiveHash) {
+      const existing = await runner.query(
+        `
+          SELECT entity_extracted_hash, entity_extracted_at
+          FROM articles
+          WHERE id = $1
+          LIMIT 1
+        `,
+        [articleId],
+      )
+
+      const row = existing.rows[0]
+      if (row?.entity_extracted_hash === effectiveHash && row?.entity_extracted_at) {
+        return {
+          skipped: true,
+          source: 'db-skip',
+          links: [],
+        }
+      }
+    }
+
+    const { candidates, source } = await resolveEntityCandidates(article, { contentHash: effectiveHash, runner })
     const articleText = [article.title, article.descriptionText || article.description_text || ''].filter(Boolean).join('. ')
 
     await runner.query('DELETE FROM article_entities WHERE article_id = $1', [articleId])
 
     if (!candidates.length) {
-      return []
+      await runner.query(
+        `
+          UPDATE articles
+          SET
+            entity_extracted_hash = $2,
+            entity_extracted_at = NOW(),
+            entity_extraction_source = $3,
+            updated_at = NOW()
+          WHERE id = $1
+        `,
+        [articleId, effectiveHash, source],
+      )
+
+      return {
+        skipped: false,
+        source,
+        links: [],
+      }
     }
 
     const sentimentSignal = getSentimentSignal(`${article.title} ${article.descriptionText || article.description_text || ''}`)
@@ -367,7 +548,24 @@ async function syncArticleEntitiesForArticle({ articleId, article }) {
       links.push(entity)
     }
 
-    return links
+    await runner.query(
+      `
+        UPDATE articles
+        SET
+          entity_extracted_hash = $2,
+          entity_extracted_at = NOW(),
+          entity_extraction_source = $3,
+          updated_at = NOW()
+        WHERE id = $1
+      `,
+      [articleId, effectiveHash, source],
+    )
+
+    return {
+      skipped: false,
+      source,
+      links,
+    }
   })
 }
 
@@ -470,7 +668,61 @@ async function listEntityMentionsForArticleIds(articleIds, { entityType = 'compa
   return result.rows
 }
 
-async function findCompanyEntityByText({ entityId, companyName, question }) {
+async function lookupCompanyEntityByNormalizedName(normalizedName) {
+  if (!normalizedName) {
+    return null
+  }
+
+  const exact = await query(
+    `
+      SELECT id, canonical_name, normalized_name, ticker, industry
+      FROM entities
+      WHERE entity_type = 'company'
+        AND normalized_name = $1
+      LIMIT 1
+    `,
+    [normalizedName],
+  )
+
+  if (exact.rows[0]) {
+    const row = exact.rows[0]
+    return {
+      id: row.id,
+      canonicalName: row.canonical_name,
+      normalizedName: row.normalized_name,
+      ticker: row.ticker,
+      industry: row.industry,
+    }
+  }
+
+  const aliasMatch = await query(
+    `
+      SELECT e.id, e.canonical_name, e.normalized_name, e.ticker, e.industry
+      FROM entity_aliases ea
+      JOIN entities e ON e.id = ea.entity_id
+      WHERE e.entity_type = 'company'
+        AND ea.normalized_alias = $1
+      ORDER BY ea.confidence DESC, e.updated_at DESC
+      LIMIT 1
+    `,
+    [normalizedName],
+  )
+
+  if (!aliasMatch.rows[0]) {
+    return null
+  }
+
+  const row = aliasMatch.rows[0]
+  return {
+    id: row.id,
+    canonicalName: row.canonical_name,
+    normalizedName: row.normalized_name,
+    ticker: row.ticker,
+    industry: row.industry,
+  }
+}
+
+async function findCompanyEntityByText({ entityId, companyName, question, nerCandidates = [] }) {
   if (entityId) {
     const byId = await query(
       `
@@ -497,49 +749,23 @@ async function findCompanyEntityByText({ entityId, companyName, question }) {
 
   if (companyName) {
     const normalizedCompanyName = normalizeText(companyName)
-    const exact = await query(
-      `
-        SELECT id, canonical_name, normalized_name, ticker, industry
-        FROM entities
-        WHERE entity_type = 'company'
-          AND normalized_name = $1
-        LIMIT 1
-      `,
-      [normalizedCompanyName],
-    )
-
-    if (exact.rows[0]) {
-      const row = exact.rows[0]
-      return {
-        id: row.id,
-        canonicalName: row.canonical_name,
-        normalizedName: row.normalized_name,
-        ticker: row.ticker,
-        industry: row.industry,
-      }
+    const directMatch = await lookupCompanyEntityByNormalizedName(normalizedCompanyName)
+    if (directMatch) {
+      return directMatch
     }
+  }
 
-    const aliasMatch = await query(
-      `
-        SELECT e.id, e.canonical_name, e.normalized_name, e.ticker, e.industry
-        FROM entity_aliases ea
-        JOIN entities e ON e.id = ea.entity_id
-        WHERE e.entity_type = 'company'
-          AND ea.normalized_alias = $1
-        ORDER BY ea.confidence DESC, e.updated_at DESC
-        LIMIT 1
-      `,
-      [normalizedCompanyName],
-    )
+  for (const candidate of nerCandidates) {
+    const namesToCheck = [
+      candidate?.name,
+      ...(Array.isArray(candidate?.aliases) ? candidate.aliases : []),
+      candidate?.ticker,
+    ]
 
-    if (aliasMatch.rows[0]) {
-      const row = aliasMatch.rows[0]
-      return {
-        id: row.id,
-        canonicalName: row.canonical_name,
-        normalizedName: row.normalized_name,
-        ticker: row.ticker,
-        industry: row.industry,
+    for (const value of namesToCheck) {
+      const matched = await lookupCompanyEntityByNormalizedName(normalizeText(value))
+      if (matched) {
+        return matched
       }
     }
   }
@@ -610,6 +836,7 @@ module.exports = {
   slugify,
   normalizeText,
   extractEntitiesFromArticle,
+  resolveEntityCandidates,
   seedKnownEntities,
   syncArticleEntitiesForArticle,
   listEntityMentionsForArticleIds,

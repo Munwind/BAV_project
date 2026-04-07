@@ -31,6 +31,7 @@ services:
       POSTGRES_DB: sentimentx
       AUTO_INIT_DB: true
       AI_SERVICE_URL: http://ai:8000
+      ENTITY_EXTRACTION_CONCURRENCY: ${ENTITY_EXTRACTION_CONCURRENCY:-4}
     depends_on:
       postgres:
         condition: service_healthy

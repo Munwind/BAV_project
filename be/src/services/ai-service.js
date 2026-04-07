@@ -1,4 +1,5 @@
 const env = require('../config/env')
+const { checkAiHealth, extractCompanyCandidates } = require('./ai-client')
 const { listArticles } = require('./crawler-service')
 const { findCompanyEntityByText, listEntityMentionsForArticleIds } = require('./entity-service')
 const { normalizeText } = require('./sentiment-heuristics')
@@ -81,7 +82,8 @@ function parseExplicitDate(question) {
 
 async function buildRetrievalPlan({ question, companyName, entityId, sourceKey, limit, contextMode }) {
   const explicitDate = parseExplicitDate(question)
-  const detectedCompany = await findCompanyEntityByText({ entityId, companyName, question })
+  const nerCandidates = await extractCompanyCandidates(companyName || question)
+  const detectedCompany = await findCompanyEntityByText({ entityId, companyName, question, nerCandidates })
   const interactionMode = classifyInteractionMode(question)
 
   return {
@@ -159,17 +161,6 @@ async function buildArticleContext({ question, sourceKey, limit, companyName, en
   }
 }
 
-async function checkAiHealth() {
-  const response = await fetch(`${env.aiServiceUrl}/health`)
-  const data = await response.json()
-
-  if (!response.ok) {
-    throw new Error(data.detail || data.error || 'AI service health check failed')
-  }
-
-  return data
-}
-
 async function askAi({ question, sourceKey, limit, locale, companyName, entityId, contextMode, history = [] }) {
   const { articles, retrievalContext } = await buildArticleContext({
     question,
@@ -211,4 +202,5 @@ module.exports = {
   askAi,
   checkAiHealth,
   classifyInteractionMode,
+  extractCompanyCandidates,
 }

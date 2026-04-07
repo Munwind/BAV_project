@@ -1,0 +1,91 @@
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: bav-nginx
+    restart: unless-stopped
+    depends_on:
+      - fe
+      - be
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: sentimentx-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-sentimentx}
+    expose:
+      - "5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-sentimentx}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  ai:
+    image: munwind/bav_project:ai
+    container_name: bav-ai
+    restart: unless-stopped
+    environment:
+      AI_SERVICE_NAME: ${AI_SERVICE_NAME:-sentimentx-ai}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPEN_API_KEY: ${OPEN_API_KEY:-}
+      NVIDIA_API_OSS_20b: ${NVIDIA_API_OSS_20b:-}
+      NVIDIA_BASE_URL: ${NVIDIA_BASE_URL:-https://integrate.api.nvidia.com/v1}
+      NVIDIA_NER_MODEL: ${NVIDIA_NER_MODEL:-openai/gpt-oss-20b}
+      NVIDIA_NER_MAX_TOKENS: ${NVIDIA_NER_MAX_TOKENS:-220}
+      NVIDIA_NER_TEMPERATURE: ${NVIDIA_NER_TEMPERATURE:-0}
+      NVIDIA_NER_TOP_P: ${NVIDIA_NER_TOP_P:-1}
+      NVIDIA_NER_SEED: ${NVIDIA_NER_SEED:-7}
+      AI_NER_DEBUG_ENABLED: ${AI_NER_DEBUG_ENABLED:-false}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://integrate.api.nvidia.com/v1}
+      OPENAI_MODEL: ${OPENAI_MODEL:-openai/gpt-oss-120b}
+      AI_REASONING_EFFORT: ${AI_REASONING_EFFORT:-low}
+    expose:
+      - "8000"
+
+  be:
+    image: munwind/bav_project:be
+    container_name: bav-be
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ai:
+        condition: service_started
+    environment:
+      NODE_ENV: production
+      PORT: ${PORT:-8080}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-sentimentx}
+      AUTO_INIT_DB: ${AUTO_INIT_DB:-true}
+      AI_SERVICE_URL: http://ai:8000
+      ENTITY_EXTRACTION_CONCURRENCY: ${ENTITY_EXTRACTION_CONCURRENCY:-4}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-}
+    expose:
+      - "8080"
+
+  fe:
+    image: munwind/bav_project:fe
+    container_name: bav-fe
+    restart: unless-stopped
+    depends_on:
+      - be
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+    expose:
+      - "5173"
+
+volumes:
+  postgres_data:

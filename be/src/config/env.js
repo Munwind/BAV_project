@@ -17,6 +17,7 @@ const env = {
   postgresDb: process.env.POSTGRES_DB || 'sentimentx',
   aiServiceUrl: process.env.AI_SERVICE_URL || 'http://localhost:8000',
   aiArticleLimit: Math.min(Math.max(toNumber(process.env.AI_ARTICLE_LIMIT, 10), 3), 20),
+  entityExtractionConcurrency: Math.min(Math.max(toNumber(process.env.ENTITY_EXTRACTION_CONCURRENCY, 4), 1), 12),
   feedRequestTimeoutMs: Math.min(Math.max(toNumber(process.env.FEED_REQUEST_TIMEOUT_MS, 12000), 3000), 60000),
 }
 

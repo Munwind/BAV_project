@@ -25,6 +25,9 @@ CREATE TABLE IF NOT EXISTS articles (
   feed_title TEXT,
   feed_link TEXT,
   raw_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+  entity_extracted_hash TEXT,
+  entity_extracted_at TIMESTAMPTZ,
+  entity_extraction_source TEXT,
   first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   crawl_count INTEGER NOT NULL DEFAULT 1,
@@ -35,9 +38,13 @@ CREATE TABLE IF NOT EXISTS articles (
 ALTER TABLE articles ADD COLUMN IF NOT EXISTS first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 ALTER TABLE articles ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 ALTER TABLE articles ADD COLUMN IF NOT EXISTS crawl_count INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE articles ADD COLUMN IF NOT EXISTS entity_extracted_hash TEXT;
+ALTER TABLE articles ADD COLUMN IF NOT EXISTS entity_extracted_at TIMESTAMPTZ;
+ALTER TABLE articles ADD COLUMN IF NOT EXISTS entity_extraction_source TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_articles_source_id ON articles(source_id);
 CREATE INDEX IF NOT EXISTS idx_articles_published_at ON articles(published_at DESC);
+CREATE INDEX IF NOT EXISTS idx_articles_entity_extracted_hash ON articles(entity_extracted_hash);
 
 CREATE TABLE IF NOT EXISTS entities (
   id BIGSERIAL PRIMARY KEY,
@@ -77,6 +84,14 @@ CREATE TABLE IF NOT EXISTS article_entities (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (article_id, entity_id)
+);
+
+CREATE TABLE IF NOT EXISTS ai_ner_cache (
+  content_hash TEXT PRIMARY KEY,
+  model_name TEXT,
+  response_payload JSONB NOT NULL DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_entities_type ON entities(entity_type);

@@ -8,8 +8,9 @@ const {
   listArticles,
   listSources,
 } = require('./services/crawler-service')
-const { askAi, checkAiHealth } = require('./services/ai-service')
+const { askAi, checkAiHealth, extractCompanyCandidates } = require('./services/ai-service')
 const { getTrackedCompanies, getAlerts, getOverview } = require('./services/analytics-service')
+const { findCompanyEntityByText } = require('./services/entity-service')
 
 const app = express()
 
@@ -157,6 +158,38 @@ app.get('/api/ai/health', async (_req, res, next) => {
     res.json({
       ok: true,
       ...health,
+    })
+  } catch (error) {
+    next(error)
+  }
+})
+
+app.post('/api/ai/extract-company', async (req, res, next) => {
+  try {
+    const text = String(req.body?.text || req.body?.question || '').trim()
+
+    if (text.length < 3) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Text must be at least 3 characters long',
+      })
+    }
+
+    const companies = await extractCompanyCandidates(text, {
+      locale: req.body?.locale,
+      model: req.body?.model,
+    })
+    const matchedEntity = await findCompanyEntityByText({
+      companyName: req.body?.companyName,
+      question: text,
+      nerCandidates: companies,
+    })
+
+    res.json({
+      ok: true,
+      input: text,
+      companies,
+      matchedEntity,
     })
   } catch (error) {
     next(error)

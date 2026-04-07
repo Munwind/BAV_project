@@ -12,6 +12,7 @@ fe/dist
 # Backend
 be/node_modules
 be/__pycache__
+be\ai_service\__pycache__
 # Logs
 *.log
 npm-debug.log*

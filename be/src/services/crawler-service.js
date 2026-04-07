@@ -2,7 +2,7 @@ const fs = require('fs/promises')
 const http = require('http')
 const https = require('https')
 const path = require('path')
-const { constants } = require('crypto')
+const { constants, createHash } = require('crypto')
 const Parser = require('rss-parser')
 const { decode } = require('he')
 const env = require('../config/env')
@@ -240,6 +240,32 @@ function normalizeArticle(source, item, feedMeta) {
   }
 }
 
+function computeEntityContentHash(article) {
+  const content = JSON.stringify({
+    title: String(article?.title || '').trim(),
+    descriptionText: String(article?.descriptionText || article?.description_text || '').trim(),
+  })
+
+  return createHash('sha256').update(content).digest('hex')
+}
+
+async function mapWithConcurrency(items, limit, mapper) {
+  const results = new Array(items.length)
+  let nextIndex = 0
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex
+      nextIndex += 1
+      results[currentIndex] = await mapper(items[currentIndex], currentIndex)
+    }
+  }
+
+  const workerCount = Math.min(limit, items.length)
+  await Promise.all(Array.from({ length: workerCount }, () => worker()))
+  return results
+}
+
 async function initializeDatabase() {
   const schemaPath = path.join(__dirname, '..', '..', 'sql', 'init.sql')
   const schemaSql = await fs.readFile(schemaPath, 'utf8')
@@ -276,6 +302,7 @@ async function upsertSource(source) {
 }
 
 async function upsertArticle(sourceId, article) {
+  const entityContentHash = computeEntityContentHash(article)
   const result = await query(
     `
       INSERT INTO articles (
@@ -291,11 +318,12 @@ async function upsertArticle(sourceId, article) {
         feed_title,
         feed_link,
         raw_payload,
+        entity_extracted_hash,
         first_seen_at,
         last_seen_at,
         crawl_count
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, NOW(), NOW(), 1)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, NULL, NOW(), NOW(), 1)
       ON CONFLICT (guid)
       DO UPDATE SET
         article_url = EXCLUDED.article_url,
@@ -308,10 +336,22 @@ async function upsertArticle(sourceId, article) {
         feed_title = EXCLUDED.feed_title,
         feed_link = EXCLUDED.feed_link,
         raw_payload = EXCLUDED.raw_payload,
+        entity_extracted_hash = CASE
+          WHEN articles.entity_extracted_hash IS DISTINCT FROM $13 THEN NULL
+          ELSE articles.entity_extracted_hash
+        END,
+        entity_extracted_at = CASE
+          WHEN articles.entity_extracted_hash IS DISTINCT FROM $13 THEN NULL
+          ELSE articles.entity_extracted_at
+        END,
+        entity_extraction_source = CASE
+          WHEN articles.entity_extracted_hash IS DISTINCT FROM $13 THEN NULL
+          ELSE articles.entity_extraction_source
+        END,
         last_seen_at = NOW(),
         crawl_count = articles.crawl_count + 1,
         updated_at = NOW()
-      RETURNING id
+      RETURNING id, entity_extracted_hash, entity_extracted_at
     `,
     [
       sourceId,
@@ -326,10 +366,16 @@ async function upsertArticle(sourceId, article) {
       article.feedTitle,
       article.feedLink,
       JSON.stringify(article.rawItem),
+      entityContentHash,
     ],
   )
 
-  return result.rows[0].id
+  const row = result.rows[0]
+  return {
+    id: row.id,
+    entityContentHash,
+    entityAlreadyProcessed: row.entity_extracted_hash === entityContentHash && Boolean(row.entity_extracted_at),
+  }
 }
 
 async function crawlSingleFeed(source) {
@@ -343,17 +389,27 @@ async function crawlSingleFeed(source) {
   }
 
   const items = feedItems.map((item) => normalizeArticle(source, item, feed))
-  let storedCount = 0
-
-  for (const article of items) {
+  const results = await mapWithConcurrency(items, env.entityExtractionConcurrency, async (article) => {
     if (!article.guid || !article.articleUrl || !article.title) {
-      continue
+      return { stored: 0, skipped: 0 }
     }
 
-    const articleId = await upsertArticle(sourceId, article)
-    await syncArticleEntitiesForArticle({ articleId, article })
-    storedCount += 1
-  }
+    const articleRecord = await upsertArticle(sourceId, article)
+    const syncResult = await syncArticleEntitiesForArticle({
+      articleId: articleRecord.id,
+      article,
+      entityContentHash: articleRecord.entityContentHash,
+      skipIfUnchanged: articleRecord.entityAlreadyProcessed,
+    })
+
+    return {
+      stored: 1,
+      skipped: syncResult?.skipped ? 1 : 0,
+    }
+  })
+
+  const storedCount = results.reduce((sum, item) => sum + item.stored, 0)
+  const skippedEntityCount = results.reduce((sum, item) => sum + item.skipped, 0)
 
   await query('UPDATE rss_sources SET last_crawled_at = NOW() WHERE id = $1', [sourceId])
 
@@ -362,6 +418,7 @@ async function crawlSingleFeed(source) {
     sourceName: source.name,
     fetchedCount: items.length,
     storedCount,
+    skippedEntityCount,
   }
 }
 
