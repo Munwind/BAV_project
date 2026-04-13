@@ -4,6 +4,7 @@ dist
 .env
 .env.*
 !.env.example
+user_data.bat
 
 # Frontend
 fe/node_modules
@@ -25,3 +26,5 @@ pnpm-debug.log*
 .idea
 .vscode/*
 !.vscode/extensions.json
+
+.script.bat

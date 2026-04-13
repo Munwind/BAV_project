@@ -92,3 +92,12 @@ docker compose down
 - Backend da co schema PostgreSQL, crawler RSS va AI bridge endpoint
 - Python AI service doc `OPENAI_API_KEY` tu `be/.env`
 - Neu can deploy production, buoc tiep theo nen bo sung auth, rate limit, queue va observability
+
+## Deploy Render + Netlify
+
+- Frontend deploy tren Netlify tu thu muc `BAV_project/fe`
+- Backend, AI service, va Postgres co the tao tren Render bang Blueprint tai [`render.yaml`](</D:/BAV_project/render.yaml>)
+- Tren Netlify, set `VITE_API_BASE_URL=https://<render-backend>.onrender.com/api`
+- Tren Netlify, set `VITE_ENABLE_CRAWLER=false`
+- `bav-ai` trong Blueprint hien duoc dat la web service `free`
+- `netlify.toml` da duoc dua ra repo root de Netlify tu nhan `base = BAV_project/fe`

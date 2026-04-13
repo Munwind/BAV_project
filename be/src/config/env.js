@@ -3,6 +3,26 @@ function toNumber(value, fallback) {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
+function buildServiceUrl() {
+  if (process.env.AI_SERVICE_URL) {
+    return process.env.AI_SERVICE_URL
+  }
+
+  const hostport = process.env.AI_SERVICE_HOSTPORT
+  if (hostport) {
+    const looksLikeHostOnly = !hostport.includes(':')
+    return looksLikeHostOnly ? `https://${hostport}` : `http://${hostport}`
+  }
+
+  const host = process.env.AI_SERVICE_HOST
+  const port = toNumber(process.env.AI_SERVICE_PORT, 8000)
+  if (host) {
+    return `http://${host}:${port}`
+  }
+
+  return 'http://localhost:8000'
+}
+
 const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: toNumber(process.env.PORT, 8080),
@@ -15,7 +35,7 @@ const env = {
   postgresUser: process.env.POSTGRES_USER || 'postgres',
   postgresPassword: process.env.POSTGRES_PASSWORD || 'postgres',
   postgresDb: process.env.POSTGRES_DB || 'sentimentx',
-  aiServiceUrl: process.env.AI_SERVICE_URL || 'http://localhost:8000',
+  aiServiceUrl: buildServiceUrl(),
   aiArticleLimit: Math.min(Math.max(toNumber(process.env.AI_ARTICLE_LIMIT, 10), 3), 20),
   entityExtractionConcurrency: Math.min(Math.max(toNumber(process.env.ENTITY_EXTRACTION_CONCURRENCY, 4), 1), 12),
   feedRequestTimeoutMs: Math.min(Math.max(toNumber(process.env.FEED_REQUEST_TIMEOUT_MS, 12000), 3000), 60000),

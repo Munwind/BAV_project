@@ -18,19 +18,20 @@ const nav = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard, description: 'Executive summary' },
   { id: 'companies', label: 'Companies', icon: BriefcaseBusiness, description: 'Tracked entities' },
   { id: 'alerts', label: 'Alerts', icon: ShieldAlert, description: 'Risk monitoring' },
+  { id: 'compare', label: 'Compare', icon: Sparkles, description: 'Watchlist and benchmarking' },
 ]
 
 function Badge({ children, tone = 'default' }) {
   const tones = {
-    default: 'border-slate-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(226,232,240,0.9))] text-slate-700 shadow-[0_10px_18px_-14px_rgba(15,23,42,0.28)]',
-    positive: 'border-emerald-200 bg-[linear-gradient(135deg,rgba(236,253,245,0.98),rgba(167,243,208,0.92),rgba(45,212,191,0.72))] text-emerald-800 shadow-[0_12px_22px_-16px_rgba(16,185,129,0.45)]',
-    negative: 'border-rose-200 bg-[linear-gradient(135deg,rgba(255,241,242,0.98),rgba(254,205,211,0.9),rgba(251,146,60,0.6))] text-rose-800 shadow-[0_12px_22px_-16px_rgba(244,63,94,0.42)]',
-    warning: 'border-amber-200 bg-[linear-gradient(135deg,rgba(255,251,235,0.98),rgba(253,230,138,0.9),rgba(251,191,36,0.72))] text-amber-800 shadow-[0_12px_22px_-16px_rgba(245,158,11,0.4)]',
-    info: 'border-cyan-200 bg-[linear-gradient(135deg,rgba(240,249,255,0.98),rgba(186,230,253,0.92),rgba(96,165,250,0.7))] text-cyan-800 shadow-[0_12px_22px_-16px_rgba(14,165,233,0.42)]',
+    default: 'border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.94),rgba(245,247,250,0.92))] text-slate-700 shadow-[0_10px_20px_-16px_rgba(15,23,42,0.28)]',
+    positive: 'border-emerald-200/80 bg-[linear-gradient(135deg,rgba(239,252,245,0.98),rgba(209,250,229,0.88))] text-emerald-900 shadow-[0_10px_20px_-16px_rgba(5,150,105,0.32)]',
+    negative: 'border-rose-200/80 bg-[linear-gradient(135deg,rgba(255,244,245,0.98),rgba(254,215,226,0.88))] text-rose-900 shadow-[0_10px_20px_-16px_rgba(225,29,72,0.32)]',
+    warning: 'border-amber-200/80 bg-[linear-gradient(135deg,rgba(255,251,235,0.98),rgba(254,240,138,0.86))] text-amber-900 shadow-[0_10px_20px_-16px_rgba(217,119,6,0.32)]',
+    info: 'border-sky-200/80 bg-[linear-gradient(135deg,rgba(240,249,255,0.98),rgba(219,234,254,0.9))] text-sky-900 shadow-[0_10px_20px_-16px_rgba(37,99,235,0.28)]',
   }
 
   return (
-    <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium ${tones[tone]}`}>
+    <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium tracking-[0.08em] uppercase ${tones[tone]}`}>
       {children}
     </span>
   )
@@ -38,11 +39,11 @@ function Badge({ children, tone = 'default' }) {
 
 function Panel({ title, description, action, children }) {
   return (
-    <section className="float-card rounded-3xl border border-white/55 bg-[linear-gradient(145deg,rgba(255,255,255,0.74),rgba(236,246,255,0.78),rgba(255,240,246,0.72))] shadow-[0_28px_90px_-42px_rgba(15,23,42,0.26)] backdrop-blur-xl">
-      <div className="flex items-start justify-between gap-4 border-b border-white/70 bg-[linear-gradient(90deg,rgba(255,255,255,0.36),rgba(224,242,254,0.28),rgba(255,237,213,0.24))] px-5 py-4">
+    <section className="panel-surface float-card rounded-[30px]">
+      <div className="panel-header flex items-start justify-between gap-4 px-5 py-4">
         <div>
-          <h2 className="text-sm font-semibold text-slate-900">{title}</h2>
-          {description ? <p className="mt-1 text-sm text-slate-500">{description}</p> : null}
+          <h2 className="font-display text-[1.15rem] font-semibold tracking-[0.01em] text-slate-950">{title}</h2>
+          {description ? <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p> : null}
         </div>
         {action}
       </div>
@@ -53,20 +54,30 @@ function Panel({ title, description, action, children }) {
 
 function StatCard({ label, value, note, tone }) {
   const surfaces = {
-    default: 'bg-[linear-gradient(135deg,rgba(255,255,255,0.99),rgba(241,245,249,0.96),rgba(219,234,254,0.78))]',
-    positive: 'bg-[linear-gradient(135deg,rgba(236,253,245,0.98),rgba(167,243,208,0.94),rgba(45,212,191,0.7))]',
-    negative: 'bg-[linear-gradient(135deg,rgba(255,241,242,0.98),rgba(254,205,211,0.92),rgba(251,146,60,0.68))]',
-    warning: 'bg-[linear-gradient(135deg,rgba(255,251,235,0.99),rgba(253,230,138,0.92),rgba(250,204,21,0.72))]',
-    info: 'bg-[linear-gradient(135deg,rgba(240,249,255,0.98),rgba(186,230,253,0.94),rgba(96,165,250,0.7))]',
+    default: 'bg-[linear-gradient(145deg,rgba(255,255,255,0.97),rgba(244,246,248,0.94),rgba(235,240,245,0.82))]',
+    positive: 'bg-[linear-gradient(145deg,rgba(239,252,245,0.98),rgba(220,252,231,0.92),rgba(167,243,208,0.72))]',
+    negative: 'bg-[linear-gradient(145deg,rgba(255,244,245,0.98),rgba(255,228,230,0.92),rgba(253,164,175,0.7))]',
+    warning: 'bg-[linear-gradient(145deg,rgba(255,251,235,0.98),rgba(254,243,199,0.92),rgba(253,230,138,0.72))]',
+    info: 'bg-[linear-gradient(145deg,rgba(239,246,255,0.98),rgba(219,234,254,0.92),rgba(191,219,254,0.72))]',
   }
 
   return (
-    <div className={`float-card rounded-3xl border border-white/70 p-5 shadow-[0_22px_52px_-34px_rgba(15,23,42,0.22)] ${surfaces[tone] || surfaces.default}`}>
+    <div className={`stat-surface float-card rounded-[28px] border p-5 shadow-[0_24px_58px_-38px_rgba(15,23,42,0.22)] ${surfaces[tone] || surfaces.default}`}>
       <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
-      <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">{value}</p>
+      <p className="font-display mt-3 text-3xl font-semibold tracking-tight text-slate-950">{value}</p>
       <div className="mt-4">
         <Badge tone={tone}>{note}</Badge>
       </div>
+    </div>
+  )
+}
+
+function ShellStat({ label, value, note }) {
+  return (
+    <div className="rounded-[24px] border border-white/70 bg-[linear-gradient(145deg,rgba(255,255,255,0.94),rgba(245,247,250,0.88))] px-4 py-4 shadow-[0_18px_36px_-30px_rgba(15,23,42,0.24)]">
+      <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">{label}</p>
+      <p className="font-display mt-3 text-2xl font-semibold tracking-tight text-slate-950">{value}</p>
+      <p className="mt-2 text-xs leading-5 text-slate-500">{note}</p>
     </div>
   )
 }
@@ -136,6 +147,11 @@ function formatDate(value) {
   }
 }
 
+function formatPercent(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '0%'
+  return `${Math.round(Number(value))}%`
+}
+
 function createWelcomeMessage(contextLabel) {
   const content =
     contextLabel === 'overview'
@@ -151,7 +167,8 @@ function createWelcomeMessage(contextLabel) {
 }
 
 export default function App() {
-  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'
+  const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/+$/, '')
+  const crawlerEnabled = import.meta.env.VITE_ENABLE_CRAWLER === 'true'
   const [activeView, setActiveView] = useState('overview')
   const [overview, setOverview] = useState(null)
   const [companies, setCompanies] = useState([])
@@ -160,9 +177,12 @@ export default function App() {
   const [companyRiskFilter, setCompanyRiskFilter] = useState('all')
   const [companySortMode, setCompanySortMode] = useState('forecast')
   const [companyPage, setCompanyPage] = useState(1)
+  const [watchlistKeys, setWatchlistKeys] = useState([])
+  const [selectedAlertId, setSelectedAlertId] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [crawlStatus, setCrawlStatus] = useState('idle')
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [assistantOpen, setAssistantOpen] = useState(false)
   const [aiQuestion, setAiQuestion] = useState('')
   const [aiStatus, setAiStatus] = useState('idle')
@@ -176,6 +196,15 @@ export default function App() {
     () => companies.find((item) => item.key === selectedCompanyKey) || companies[0] || null,
     [companies, selectedCompanyKey],
   )
+  const selectedAlert = useMemo(
+    () => alerts.find((item) => item.id === selectedAlertId) || alerts[0] || null,
+    [alerts, selectedAlertId],
+  )
+  const compareCompanies = useMemo(() => {
+    const explicit = companies.filter((company) => watchlistKeys.includes(company.key))
+    if (explicit.length) return explicit.slice(0, 3)
+    return companies.slice(0, 3)
+  }, [companies, watchlistKeys])
   const topForecastCompany = useMemo(() => {
     if (!companies.length) return null
 
@@ -221,6 +250,8 @@ export default function App() {
     return filteredCompanies.slice(startIndex, startIndex + companyPageSize)
   }, [companyPage, filteredCompanies, totalCompanyPages])
   const chatContextKey = activeView === 'companies' && selectedCompany?.name ? `company:${selectedCompany.name}` : 'overview'
+  const activeNavItem = nav.find((item) => item.id === activeView) || nav[0]
+  const highSeverityAlerts = alerts.filter((item) => item.severity === 'high').length
 
   async function getJson(path) {
     const response = await fetch(`${apiBaseUrl}${path}`)
@@ -244,6 +275,12 @@ export default function App() {
       if (!selectedCompanyKey && companiesData.items?.length) {
         setSelectedCompanyKey(companiesData.items[0].key)
       }
+      if (!selectedAlertId && alertsData.items?.length) {
+        setSelectedAlertId(alertsData.items[0].id)
+      }
+      if (!watchlistKeys.length && companiesData.items?.length) {
+        setWatchlistKeys(companiesData.items.slice(0, 3).map((item) => item.key))
+      }
     } catch (loadError) {
       setError(loadError.message || 'Không thể tải dữ liệu')
     } finally {
@@ -251,9 +288,12 @@ export default function App() {
     }
   }
 
+  /* eslint-disable react-hooks/exhaustive-deps */
+  // `loadData` intentionally runs on initial mount; later refreshes are explicit user actions.
   useEffect(() => {
     loadData()
   }, [])
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   useEffect(() => {
     setChatMessages([createWelcomeMessage(chatContextKey)])
@@ -265,6 +305,10 @@ export default function App() {
   useEffect(() => {
     setCompanyPage(1)
   }, [companyRiskFilter, companySortMode])
+
+  useEffect(() => {
+    setMobileNavOpen(false)
+  }, [activeView])
 
   useEffect(() => {
     if (companyPage > totalCompanyPages) {
@@ -296,7 +340,7 @@ export default function App() {
           articles: data.articles || [],
         })
         setSearchStatus('success')
-      } catch (_error) {
+      } catch {
         setSearchResults({ companies: [], alerts: [], articles: [] })
         setSearchStatus('error')
       }
@@ -313,17 +357,32 @@ export default function App() {
     setSearchStatus('idle')
   }
 
-  function handleSelectAlertFromSearch() {
+  function handleSelectAlertFromSearch(alertId) {
+    setSelectedAlertId(alertId)
     setActiveView('alerts')
     setSearchQuery('')
     setSearchResults({ companies: [], alerts: [], articles: [] })
     setSearchStatus('idle')
   }
 
+  function toggleWatchlist(companyKey) {
+    setWatchlistKeys((current) => {
+      if (current.includes(companyKey)) {
+        return current.filter((key) => key !== companyKey)
+      }
+
+      return [...current, companyKey].slice(-3)
+    })
+  }
+
   function clearSearch() {
     setSearchQuery('')
     setSearchResults({ companies: [], alerts: [], articles: [] })
     setSearchStatus('idle')
+  }
+
+  function handleChangeView(viewId) {
+    setActiveView(viewId)
   }
 
   async function handleRunCrawler() {
@@ -415,7 +474,597 @@ export default function App() {
     }
   }
 
-  function renderOverview() {
+  function renderNavButtons(mode = 'desktop') {
+    const isCompact = mode === 'compact'
+    const isDrawer = mode === 'drawer'
+
+    return nav.map((item) => (
+      <button
+        key={`${mode}-${item.id}`}
+        type="button"
+        onClick={() => handleChangeView(item.id)}
+        className={
+          isCompact
+            ? `inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-medium transition ${
+                activeView === item.id
+                  ? 'border-slate-900 bg-slate-950 text-white shadow-[0_16px_34px_-22px_rgba(15,23,42,0.48)]'
+                  : 'border-slate-200/80 bg-white/80 text-slate-600'
+              }`
+            : `w-full rounded-[24px] border px-4 py-3 text-left transition ${
+                activeView === item.id
+                  ? 'border-slate-900/10 bg-[linear-gradient(135deg,rgba(15,23,42,0.96),rgba(30,41,59,0.94),rgba(71,85,105,0.92))] text-white shadow-[0_26px_50px_-34px_rgba(15,23,42,0.65)]'
+                  : 'border-transparent bg-white/40 text-slate-600 hover:border-slate-200/80 hover:bg-white/70'
+              } ${isDrawer ? 'backdrop-blur' : ''}`
+        }
+      >
+        <div className="flex items-center gap-3">
+          <item.icon className={isCompact ? 'size-3.5' : 'size-4'} />
+          <span className={isCompact ? '' : 'text-sm font-medium'}>{item.label}</span>
+        </div>
+        {!isCompact ? (
+          <p className={`mt-2 text-xs leading-5 ${activeView === item.id ? 'text-white/70' : 'text-slate-400'}`}>
+            {item.description}
+          </p>
+        ) : null}
+      </button>
+    ))
+  }
+
+  function renderSearchResultsPanel(className) {
+    if (searchQuery.trim().length < 2) return null
+
+    return (
+      <div className={className}>
+        {searchStatus === 'loading' ? (
+          <div className="flex items-center gap-2 px-2 py-3 text-sm text-slate-500">
+            <LoaderCircle className="size-4 animate-spin" />
+            Searching...
+          </div>
+        ) : null}
+
+        {searchStatus !== 'loading' ? (
+          <div className="space-y-4">
+            {searchResults.companies.length ? (
+              <div>
+                <p className="px-2 text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400">Companies</p>
+                <div className="mt-2 space-y-2">
+                  {searchResults.companies.map((company) => (
+                    <button
+                      key={company.key}
+                      type="button"
+                      onClick={() => handleSelectCompanyFromSearch(company.key)}
+                      className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-[linear-gradient(90deg,rgba(255,255,255,0.98),rgba(240,249,255,0.92),rgba(250,245,255,0.86))] px-3 py-3 text-left transition hover:border-sky-200 hover:bg-[linear-gradient(90deg,rgba(224,242,254,0.92),rgba(255,255,255,0.96),rgba(255,237,213,0.82))]"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-slate-900">{company.name}</p>
+                        <p className="mt-1 text-xs text-slate-500">{company.industry}</p>
+                      </div>
+                      <Badge tone={toneForSeverity(company.forecastRisk7d)}>7d {formatForecastLabel(company.forecastRisk7d)}</Badge>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {searchResults.alerts.length ? (
+              <div>
+                <p className="px-2 text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400">Alerts</p>
+                <div className="mt-2 space-y-2">
+                  {searchResults.alerts.map((alert) => (
+                    <button
+                      key={alert.id}
+                      type="button"
+                      onClick={() => handleSelectAlertFromSearch(alert.id)}
+                      className="flex w-full items-start justify-between rounded-2xl border border-slate-200 bg-[linear-gradient(90deg,rgba(255,255,255,0.98),rgba(255,247,237,0.92),rgba(255,228,230,0.84))] px-3 py-3 text-left transition hover:border-sky-200 hover:bg-[linear-gradient(90deg,rgba(255,241,242,0.92),rgba(255,255,255,0.96),rgba(255,237,213,0.82))]"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-slate-900">{alert.title}</p>
+                        <p className="mt-1 text-xs text-slate-500">{alert.companyName}</p>
+                      </div>
+                      <Badge tone={toneForSeverity(alert.forecastRisk7d || alert.severity)}>
+                        {formatForecastLabel(alert.forecastRisk7d || alert.severity)}
+                      </Badge>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {searchResults.articles.length ? (
+              <div>
+                <p className="px-2 text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400">Headlines</p>
+                <div className="mt-2 space-y-2">
+                  {searchResults.articles.map((article) => (
+                    <a
+                      key={article.id}
+                      href={article.article_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block rounded-2xl border border-slate-200 bg-[linear-gradient(90deg,rgba(255,255,255,0.98),rgba(240,249,255,0.9),rgba(255,247,237,0.84))] px-3 py-3 transition hover:border-sky-200 hover:bg-[linear-gradient(90deg,rgba(224,242,254,0.92),rgba(255,255,255,0.96),rgba(255,237,213,0.82))]"
+                    >
+                      <p className="text-sm font-medium text-slate-900">{article.title}</p>
+                      <p className="mt-1 text-xs text-slate-500">{article.source_name}</p>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {!searchResults.companies.length && !searchResults.alerts.length && !searchResults.articles.length ? (
+              <div className="px-2 py-3 text-sm text-slate-500">No company, alert, or headline matched this query.</div>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    )
+  }
+
+  function renderActionablePanel(item) {
+    if (!item?.actionable) return null
+
+    return (
+      <div className="rounded-3xl border border-amber-100 bg-[linear-gradient(135deg,rgba(255,251,235,0.96),rgba(255,255,255,0.96),rgba(255,237,213,0.86))] px-4 py-4">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Actionable output</p>
+          <Badge tone="warning">Analyst brief</Badge>
+        </div>
+        <div className="mt-4 space-y-2.5">
+          <div className="rounded-2xl border border-white/80 bg-white/70 px-4 py-3">
+            <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Why this matters</p>
+            <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-700">{item.actionable.whyThisMatters}</p>
+          </div>
+          <div className="rounded-2xl border border-white/80 bg-white/70 px-4 py-3">
+            <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">What changed</p>
+            <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-700">{item.actionable.whatChanged24h}</p>
+          </div>
+          <div className="rounded-2xl border border-white/80 bg-white/70 px-4 py-3">
+            <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Recommended action</p>
+            <p className="mt-2 line-clamp-2 text-sm leading-6 font-medium text-slate-800">{item.actionable.recommendedAction}</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  function _renderEvidencePanelLegacy(item) {
+    if (!item?.explainability) return null
+
+    const evidence = item.explainability
+    const keyArticles = (evidence.negativeArticles?.length ? evidence.negativeArticles : evidence.keyArticles || []).slice(0, 2)
+    const topSources = (evidence.sourceContributions || []).slice(0, 3)
+
+    return (
+      <div className="rounded-3xl border border-fuchsia-100 bg-[linear-gradient(135deg,rgba(250,245,255,0.96),rgba(255,255,255,0.96),rgba(224,242,254,0.84))] px-4 py-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Evidence and explainability</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Badge tone="info">Model confidence {evidence.averageModelConfidence}</Badge>
+            <Badge tone="warning">Negative ratio {formatPercent(evidence.negativeRatio)}</Badge>
+            {evidence.strongestSource ? <Badge tone="default">Strongest source {evidence.strongestSource}</Badge> : null}
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-4 xl:grid-cols-[1.08fr_0.92fr]">
+          <div className="space-y-3">
+            <div className="rounded-2xl border border-white/80 bg-white/70 px-4 py-3">
+              <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Articles pulling the score</p>
+              <div className="mt-3 space-y-3">
+                {keyArticles.map((article) => (
+                  <a
+                    key={`${item.key || item.id}-${article.id}-${article.title}`}
+                    href={article.articleUrl || '#'}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block rounded-2xl border border-slate-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(255,241,242,0.84),rgba(255,247,237,0.82))] px-4 py-3 transition hover:border-sky-200"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-slate-900">{article.title}</p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {article.sourceName} • {formatDate(article.publishedAt)}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Badge tone={article.sentimentSignal < 0 ? 'negative' : 'info'}>Signal {article.sentimentSignal}</Badge>
+                        <Badge tone="info">Confidence {article.modelConfidence}</Badge>
+                      </div>
+                    </div>
+                    <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">{article.negativeSnippet}</p>
+                  </a>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div className="rounded-2xl border border-white/80 bg-white/70 px-4 py-3">
+              <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Top contributing sources</p>
+              <div className="mt-3 space-y-2">
+                {topSources.map((source) => (
+                  <div key={`${item.key || item.id}-${source.sourceKey}`} className="rounded-2xl border border-slate-200 bg-white/80 px-3 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-medium text-slate-900">{source.sourceName}</p>
+                      <Badge tone={source.negativeCount > 0 ? 'warning' : 'default'}>{source.mentionCount} mentions</Badge>
+                    </div>
+                    <p className="mt-2 text-xs text-slate-500">
+                      {source.negativeCount} negative • impact {source.weightedImpact} • confidence {source.averageConfidence}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/80 bg-white/70 px-4 py-3">
+              <p className="text-xs uppercase tracking-[0.16em] text-slate-500">What the model is seeing</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {(item.topTopics || []).map((topic) => (
+                  <Badge key={`${item.key || item.id}-${topic}`} tone="default">{topic}</Badge>
+                ))}
+              </div>
+              <div className="mt-4 space-y-2">
+                {(evidence.scoreBreakdown || []).map((driver) => (
+                  <div key={`${item.key || item.id}-${driver.label}`} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white/80 px-3 py-2">
+                    <p className="text-sm text-slate-600">{driver.label}</p>
+                    <Badge tone={driver.direction === 'negative' ? 'negative' : driver.direction === 'positive' ? 'positive' : 'default'}>
+                      {driver.value}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/80 bg-white/70 px-4 py-3">
+              <p className="text-xs uppercase tracking-[0.16em] text-slate-500">24h change log</p>
+              <p className="mt-3 text-sm leading-7 text-slate-700">{evidence.changes24h?.summary}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Badge tone="default">Now {evidence.changes24h?.last24hMentions || 0}</Badge>
+                <Badge tone="default">Prev {evidence.changes24h?.previous24hMentions || 0}</Badge>
+                <Badge tone={Number(evidence.changes24h?.negativeMentions24h || 0) > 0 ? 'warning' : 'info'}>
+                  Negative {evidence.changes24h?.negativeMentions24h || 0}
+                </Badge>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  function renderEvidencePanel(item) {
+    if (!item?.explainability) return null
+
+    const evidence = item.explainability
+    const keyArticles = (evidence.negativeArticles?.length ? evidence.negativeArticles : evidence.keyArticles || []).slice(0, 2)
+    const topSources = (evidence.sourceContributions || []).slice(0, 3)
+    const scoreDrivers = (evidence.scoreBreakdown || []).slice(0, 3)
+
+    return (
+      <div className="rounded-3xl border border-fuchsia-100 bg-[linear-gradient(135deg,rgba(250,245,255,0.96),rgba(255,255,255,0.96),rgba(224,242,254,0.84))] px-4 py-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Evidence and explainability</p>
+          <div className="flex flex-wrap gap-2">
+            <Badge tone="info">Model confidence {evidence.averageModelConfidence}</Badge>
+            <Badge tone="warning">Negative ratio {formatPercent(evidence.negativeRatio)}</Badge>
+            {evidence.strongestSource ? <Badge tone="default">Strongest source {evidence.strongestSource}</Badge> : null}
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3 xl:grid-cols-[1.02fr_0.98fr]">
+          <div className="space-y-3">
+            <div className="rounded-2xl border border-white/80 bg-white/70 px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Articles pulling the score</p>
+                <Badge tone="default">{keyArticles.length} items</Badge>
+              </div>
+              <div className="mt-3 space-y-2.5">
+                {keyArticles.map((article) => (
+                  <a
+                    key={`${item.key || item.id}-${article.id}-${article.title}`}
+                    href={article.articleUrl || '#'}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block rounded-2xl border border-slate-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(255,241,242,0.84),rgba(255,247,237,0.82))] px-4 py-3 transition hover:border-sky-200"
+                  >
+                    <div className="space-y-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-slate-900">{article.title}</p>
+                      </div>
+                      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                        <p className="min-w-0 text-xs text-slate-500">
+                          {article.sourceName} • {formatDate(article.publishedAt)}
+                        </p>
+                        <div className="inline-flex flex-wrap gap-2 sm:flex-nowrap sm:justify-self-end">
+                          <Badge tone={article.sentimentSignal < 0 ? 'negative' : 'info'}>Signal {article.sentimentSignal}</Badge>
+                          <Badge tone="info">Conf {article.modelConfidence}</Badge>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">{article.negativeSnippet}</p>
+                  </a>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/80 bg-white/70 px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">24h change log</p>
+                <Badge tone="default">Now {evidence.changes24h?.last24hMentions || 0}</Badge>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Badge tone="default">Prev {evidence.changes24h?.previous24hMentions || 0}</Badge>
+                <Badge tone={Number(evidence.changes24h?.negativeMentions24h || 0) > 0 ? 'warning' : 'info'}>
+                  Negative {evidence.changes24h?.negativeMentions24h || 0}
+                </Badge>
+              </div>
+              {evidence.changes24h?.summary ? (
+                <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-700">{evidence.changes24h.summary}</p>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div className="rounded-2xl border border-white/80 bg-white/70 px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Top contributing sources</p>
+                <Badge tone="default">{topSources.length} sources</Badge>
+              </div>
+              <div className="mt-3 space-y-2">
+                {topSources.map((source) => (
+                  <div key={`${item.key || item.id}-${source.sourceKey}`} className="rounded-2xl border border-slate-200 bg-white/80 px-3 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-medium text-slate-900">{source.sourceName}</p>
+                      <Badge tone={source.negativeCount > 0 ? 'warning' : 'default'}>{source.mentionCount} mentions</Badge>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <Badge tone={source.negativeCount > 0 ? 'negative' : 'default'}>{source.negativeCount} negative</Badge>
+                      <Badge tone="default">Impact {source.weightedImpact}</Badge>
+                      <Badge tone="info">Conf {source.averageConfidence}</Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/80 bg-white/70 px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Forecast drivers</p>
+                <Badge tone="default">{scoreDrivers.length} signals</Badge>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {(item.topTopics || []).slice(0, 4).map((topic) => (
+                  <Badge key={`${item.key || item.id}-${topic}`} tone="default">{topic}</Badge>
+                ))}
+              </div>
+              <div className="mt-4 space-y-2">
+                {scoreDrivers.map((driver) => (
+                  <div key={`${item.key || item.id}-${driver.label}`} className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white/80 px-3 py-2">
+                    <p className="text-sm text-slate-600">{driver.label}</p>
+                    <Badge tone={driver.direction === 'negative' ? 'negative' : driver.direction === 'positive' ? 'positive' : 'default'}>
+                      {driver.value}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  function renderOverviewV2() {
+    if (!overview) return null
+
+    const metrics = [
+      ['Average Sentiment', `${overview.metrics.averageSentiment}/100`, 'Across tracked companies', 'info'],
+      ['Tracked Companies', overview.metrics.trackedCompanies, 'Entity-driven company universe', 'default'],
+      ['Active Alerts', overview.metrics.activeAlerts, 'Need analyst review', 'warning'],
+      ['Tracked Sources', overview.metrics.trackedSources, 'Multi-source coverage', 'info'],
+      ['Knowledge Base', overview.metrics.knowledgeBase, 'Historic mentions retained', 'positive'],
+    ]
+
+    return (
+      <div className="space-y-5">
+        <div className="space-y-4 border-b border-slate-200/80 pb-6">
+          <div className="flex items-end">
+            <h1 className="font-display text-[clamp(2.6rem,5vw,4.5rem)] leading-none font-semibold tracking-[-0.03em] text-slate-950">
+              Overview
+            </h1>
+          </div>
+
+          <div className="rounded-[32px] border border-white/80 bg-[linear-gradient(155deg,rgba(255,255,255,0.92),rgba(248,250,252,0.82),rgba(238,242,255,0.72))] p-5 shadow-[0_28px_74px_-42px_rgba(15,23,42,0.28)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Control room</p>
+                <p className="font-display mt-3 text-2xl font-semibold tracking-tight text-slate-950">
+                  {topForecastCompany?.name || 'No spotlight yet'}
+                </p>
+                <p className="mt-2 text-sm leading-7 text-slate-600">
+                  {topForecastCompany?.forecastSummary || 'Run a fresh crawl to populate the latest market signal and forecast context.'}
+                </p>
+              </div>
+              {topForecastCompany ? (
+                <Badge tone={toneForSeverity(topForecastCompany.forecastRisk7d)}>
+                  7d {formatForecastLabel(topForecastCompany.forecastRisk7d)}
+                </Badge>
+              ) : null}
+            </div>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <ShellStat label="Open alerts" value={alerts.length} note="Current analyst queue across all entities." />
+              <ShellStat label="High severity" value={highSeverityAlerts} note="Immediate review candidates today." />
+              <ShellStat
+                label="Crawler status"
+                value={crawlStatus === 'loading' ? 'Running' : crawlStatus === 'success' ? 'Fresh' : 'Standby'}
+                note={
+                  crawlStatus === 'success'
+                    ? 'Latest crawl completed successfully.'
+                    : crawlerEnabled
+                      ? 'Use refresh for read sync, crawl for ingest.'
+                      : 'Crawler is admin-only and should run outside the public frontend.'
+                }
+              />
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-3">
+                <button
+                type="button"
+                onClick={loadData}
+                className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm transition hover:-translate-y-0.5"
+              >
+                <RefreshCcw className="size-4" />
+                Refresh
+              </button>
+              {crawlerEnabled ? (
+                <button
+                type="button"
+                onClick={handleRunCrawler}
+                disabled={crawlStatus === 'loading'}
+                className="animated-gradient rounded-2xl bg-[linear-gradient(90deg,rgba(15,23,42,1),rgba(30,41,59,0.96),rgba(14,116,144,0.92),rgba(180,83,9,0.88))] px-4 py-3 text-sm font-medium text-white shadow-[0_18px_34px_-18px_rgba(15,23,42,0.6)] transition-transform duration-200 hover:-translate-y-0.5 disabled:opacity-60"
+              >
+                {crawlStatus === 'loading' ? 'Đang crawl...' : 'Run Crawl'}
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-5">
+          {metrics.map(([label, value, note, tone]) => (
+            <StatCard key={label} label={label} value={value} note={note} tone={tone} />
+          ))}
+        </div>
+
+        {topForecastCompany ? (
+          <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+            <div className="soft-glow animated-gradient float-card rounded-[28px] border border-white/75 bg-[linear-gradient(135deg,rgba(16,24,40,0.9),rgba(15,23,42,0.78),rgba(14,116,144,0.5),rgba(245,158,11,0.22))] p-5 text-white shadow-[0_26px_64px_-40px_rgba(15,23,42,0.4)]">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-white/60">Predicted risk spotlight</p>
+                  <h3 className="font-display mt-2 text-3xl font-semibold tracking-tight text-white">{topForecastCompany.name}</h3>
+                  <p className="mt-2 max-w-2xl text-sm leading-7 text-white/78">{topForecastCompany.forecastSummary}</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Badge tone={toneForSeverity(topForecastCompany.forecastRisk24h)}>24h {formatForecastLabel(topForecastCompany.forecastRisk24h)}</Badge>
+                  <Badge tone={toneForSeverity(topForecastCompany.forecastRisk7d)}>7d {formatForecastLabel(topForecastCompany.forecastRisk7d)}</Badge>
+                  <Badge tone="info">Confidence {topForecastCompany.forecastConfidence}</Badge>
+                </div>
+              </div>
+            </div>
+            <div className="animated-gradient float-card rounded-[28px] border border-white/75 bg-[linear-gradient(135deg,rgba(255,255,255,0.94),rgba(240,249,255,0.92),rgba(255,237,213,0.9))] p-5 shadow-[0_26px_64px_-40px_rgba(15,23,42,0.24)]">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Momentum</p>
+                  <p className="font-display mt-3 text-3xl font-semibold tracking-tight text-slate-950">{topForecastCompany.last24hMentions || 0}</p>
+                  <p className="mt-2 text-sm text-slate-500">mentions in 24h across {topForecastCompany.sourceCount || 0} sources</p>
+                </div>
+                <SparkBars
+                  tone={toneForSeverity(topForecastCompany.forecastRisk7d)}
+                  values={[
+                    topForecastCompany.last24hMentions || 1,
+                    Math.max(1, Math.round((topForecastCompany.mentions || 1) / 2)),
+                    topForecastCompany.mentions || 1,
+                    Math.max(1, Math.round((topForecastCompany.lifetimeMentions || 1) / 8)),
+                    (topForecastCompany.forecastConfidence || 1) * 8,
+                    topForecastCompany.negativeSignals || 1,
+                  ]}
+                />
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+          <Panel
+            title={overview.topCompany ? `Top company: ${overview.topCompany.name}` : 'Top company'}
+            description="Doanh nghiệp nổi bật nhất trong batch gần nhất."
+            action={overview.topCompany ? <Badge tone={toneForScore(overview.topCompany.score)}>{overview.topCompany.sentimentLabel}</Badge> : null}
+          >
+            {overview.topCompany ? (
+              <div className="space-y-4">
+                <div className="grid gap-3 md:grid-cols-4">
+                  <div className="rounded-2xl border border-cyan-100 bg-[linear-gradient(135deg,rgba(239,246,255,0.95),rgba(224,242,254,0.88))] px-4 py-3">
+                    <p className="text-xs text-slate-500">Score</p>
+                    <p className="font-display mt-2 text-2xl font-semibold text-slate-900">{overview.topCompany.score}</p>
+                  </div>
+                  <div className="rounded-2xl border border-amber-100 bg-[linear-gradient(135deg,rgba(255,247,237,0.95),rgba(254,243,199,0.84))] px-4 py-3">
+                    <p className="text-xs text-slate-500">7d mentions</p>
+                    <p className="font-display mt-2 text-2xl font-semibold text-slate-900">{overview.topCompany.mentions}</p>
+                  </div>
+                  <div className="rounded-2xl border border-rose-100 bg-[linear-gradient(135deg,rgba(255,241,242,0.95),rgba(255,228,230,0.84))] px-4 py-3">
+                    <p className="text-xs text-slate-500">Risk</p>
+                    <p className="font-display mt-2 text-2xl font-semibold text-slate-900">{overview.topCompany.risk}</p>
+                  </div>
+                  <div className="rounded-2xl border border-emerald-100 bg-[linear-gradient(135deg,rgba(236,253,245,0.95),rgba(209,250,229,0.84))] px-4 py-3">
+                    <p className="text-xs text-slate-500">Lifetime</p>
+                    <p className="font-display mt-2 text-2xl font-semibold text-slate-900">{overview.topCompany.lifetimeMentions}</p>
+                  </div>
+                </div>
+                <div className="rounded-3xl border border-cyan-100 bg-[linear-gradient(135deg,rgba(224,242,254,0.92),rgba(255,255,255,0.96),rgba(255,237,213,0.92))] px-4 py-4">
+                  <div className="flex flex-wrap gap-2">
+                    <Badge tone="info">{overview.topCompany.sourceCount} sources</Badge>
+                    <Badge tone="default">{overview.topCompany.last24hMentions} mentions / 24h</Badge>
+                    <Badge tone="positive">Seen until {formatDate(overview.topCompany.lastSeenAt)}</Badge>
+                    <Badge tone={toneForSeverity(overview.topCompany.forecastRisk24h)}>24h forecast {formatForecastLabel(overview.topCompany.forecastRisk24h)}</Badge>
+                    <Badge tone={toneForSeverity(overview.topCompany.forecastRisk7d)}>7d forecast {formatForecastLabel(overview.topCompany.forecastRisk7d)}</Badge>
+                  </div>
+                  <p className="mt-4 text-sm leading-7 text-slate-600">{overview.topCompany.summary}</p>
+                  <p className="mt-3 text-sm leading-7 text-slate-500">{overview.topCompany.forecastSummary}</p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">Chưa có dữ liệu.</p>
+            )}
+          </Panel>
+
+          <Panel title="Latest alerts" description="Danh sách cần review ngay.">
+            <div className="space-y-3">
+              {(overview.latestAlerts || []).map((alert) => (
+                <div key={alert.id} className="rounded-2xl border border-slate-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(255,247,237,0.9),rgba(250,245,255,0.82))] px-4 py-4 shadow-[0_16px_34px_-28px_rgba(15,23,42,0.22)]">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">{alert.title}</p>
+                      <p className="mt-2 text-sm leading-7 text-slate-600">{alert.description}</p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Badge tone={toneForSeverity(alert.severity)}>{alert.severity}</Badge>
+                        <Badge tone="default">{alert.lifetimeMentions} lifetime mentions</Badge>
+                      </div>
+                    </div>
+                    <Badge tone={toneForSeverity(alert.severity)}>{alert.score}</Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Panel>
+        </div>
+
+        <Panel title="Latest market coverage" description="Các bài mới nhất vừa được giữ vào knowledge base.">
+          <div className="grid gap-3 xl:grid-cols-3">
+            {(overview.latestNews || []).map((article) => (
+              <a
+                key={article.id}
+                href={article.article_url}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-orange-50/40 px-4 py-4 transition hover:border-sky-200 hover:shadow-[0_18px_40px_-28px_rgba(14,165,233,0.35)]"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <Badge tone="info">{article.source_name}</Badge>
+                  <ChevronRight className="size-4 text-slate-400" />
+                </div>
+                <p className="mt-3 text-sm font-medium leading-6 text-slate-900">{article.title}</p>
+                <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-600">{article.description_text}</p>
+              </a>
+            ))}
+          </div>
+        </Panel>
+      </div>
+    )
+  }
+
+  function _renderOverview() {
     if (!overview) return null
 
     const metrics = [
@@ -437,7 +1086,7 @@ export default function App() {
             </p>
           </div>
           <div className="flex gap-3">
-            <button
+              <button
               type="button"
               onClick={loadData}
               className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm"
@@ -445,14 +1094,16 @@ export default function App() {
               <RefreshCcw className="size-4" />
               Refresh
             </button>
-            <button
+            {crawlerEnabled ? (
+              <button
               type="button"
               onClick={handleRunCrawler}
               disabled={crawlStatus === 'loading'}
               className="animated-gradient rounded-2xl bg-[linear-gradient(90deg,rgba(14,165,233,1),rgba(59,130,246,0.96),rgba(217,70,239,0.92),rgba(251,146,60,0.92))] px-4 py-3 text-sm font-medium text-white shadow-[0_18px_34px_-18px_rgba(14,165,233,0.72)] transition-transform duration-200 hover:-translate-y-0.5 disabled:opacity-60"
             >
               {crawlStatus === 'loading' ? 'Đang crawl...' : 'Run Crawl'}
-            </button>
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -589,12 +1240,391 @@ export default function App() {
     )
   }
 
-  function renderCompanies() {
+  function renderCompaniesV2() {
+    const highRiskCompanies = companies.filter((company) => company.forecastRisk7d === 'high').length
+    const watchlistCompanies = companies.filter((company) => watchlistKeys.includes(company.key)).length
+    const volumeLeader = [...companies].sort((left, right) => (right.mentions || 0) - (left.mentions || 0))[0] || null
+
     return (
       <div className="space-y-5">
         <div className="border-b border-slate-200 pb-5">
           <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Tracked companies</p>
-          <h1 className="mt-2 text-4xl font-semibold tracking-tight text-slate-900">Companies</h1>
+          <h1 className="font-display mt-2 text-4xl font-semibold tracking-tight text-slate-900">Companies</h1>
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
+            Company board này ưu tiên tốc độ đọc: thấy ngay brand nào đang nóng, brand nào cần review, và brand nào đáng giữ trong watchlist.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Badge tone="info">{companies.length} total companies</Badge>
+            <Badge tone="warning">{highRiskCompanies} high 7d forecast</Badge>
+            <Badge tone="default">{watchlistCompanies} in watchlist</Badge>
+            {volumeLeader ? <Badge tone="positive">Volume leader {volumeLeader.name}</Badge> : null}
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          <ShellStat label="Tracked universe" value={companies.length} note="Entity set currently available for monitoring and comparison." />
+          <ShellStat label="High forecast" value={highRiskCompanies} note="Companies that look most likely to require review over the next 7 days." />
+          <ShellStat label="Watchlist" value={watchlistCompanies} note="Hand-picked companies pinned for side-by-side tracking." />
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+          <Panel title="Company list" description="Sorted board for velocity, score and forecast risk.">
+            <div className="space-y-4">
+              <div className="rounded-[24px] border border-slate-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.92),rgba(245,247,250,0.88))] p-4">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Visible rows</p>
+                    <p className="font-display mt-2 text-2xl font-semibold text-slate-950">{paginatedCompanies.length}</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">Rows currently visible after filters and pagination.</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Sort mode</p>
+                    <p className="font-display mt-2 text-2xl font-semibold text-slate-950">
+                      {companySortMode === 'forecast' ? 'Forecast' : companySortMode === 'mentions' ? 'Mentions' : 'Score'}
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">Switch between predictive ranking, volume and pure sentiment score.</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Risk filter</p>
+                    <p className="font-display mt-2 text-2xl font-semibold text-slate-950">{companyRiskFilter === 'all' ? 'All' : formatForecastLabel(companyRiskFilter)}</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">Use filter to isolate specific 7d forecast levels.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2 pb-2">
+                <select
+                  value={companyRiskFilter}
+                  onChange={(event) => setCompanyRiskFilter(event.target.value)}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-sm"
+                >
+                  <option value="all">All risks</option>
+                  <option value="high">High 7d</option>
+                  <option value="medium">Medium 7d</option>
+                  <option value="low">Low 7d</option>
+                </select>
+                <select
+                  value={companySortMode}
+                  onChange={(event) => setCompanySortMode(event.target.value)}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 shadow-sm"
+                >
+                  <option value="forecast">Sort: Forecast</option>
+                  <option value="mentions">Sort: Mentions</option>
+                  <option value="score">Sort: Score</option>
+                </select>
+              </div>
+
+              <div className="space-y-3">
+                {paginatedCompanies.map((company, index) => {
+                  const isSelected = selectedCompany?.key === company.key
+                  const boardRank = (companyPage - 1) * companyPageSize + index + 1
+
+                  return (
+                    <div
+                      key={company.key}
+                      onClick={() => setSelectedCompanyKey(company.key)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          setSelectedCompanyKey(company.key)
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      className={`float-card rounded-[26px] border px-4 py-4 text-left transition ${
+                        isSelected
+                          ? 'border-slate-900/10 bg-[linear-gradient(145deg,rgba(15,23,42,0.96),rgba(30,41,59,0.94),rgba(14,116,144,0.78))] text-white shadow-[0_26px_46px_-30px_rgba(15,23,42,0.55)]'
+                          : 'border-slate-200 bg-[linear-gradient(145deg,rgba(255,255,255,0.98),rgba(248,250,252,0.96),rgba(255,247,237,0.74))] hover:border-sky-200 hover:bg-[linear-gradient(145deg,rgba(240,249,255,0.96),rgba(255,255,255,0.96),rgba(255,237,213,0.74))]'
+                      }`}
+                    >
+                      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                        <div className="flex min-w-0 items-start gap-4">
+                          <div className={`flex size-11 shrink-0 items-center justify-center rounded-2xl border text-sm font-semibold ${isSelected ? 'border-white/15 bg-white/10 text-white' : 'border-slate-200 bg-white/80 text-slate-600'}`}>
+                            {boardRank}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className={`text-sm font-semibold ${isSelected ? 'text-white' : 'text-slate-900'}`}>{company.name}</p>
+                              <Badge tone={toneForSeverity(company.forecastRisk7d)}>7d {formatForecastLabel(company.forecastRisk7d)}</Badge>
+                              <Badge tone={toneForScore(company.score)}>Score {company.score}</Badge>
+                            </div>
+                            <p className={`mt-1 text-xs ${isSelected ? 'text-white/70' : 'text-slate-500'}`}>{company.industry}</p>
+                            <div className={`mt-3 grid gap-2 text-xs sm:grid-cols-3 ${isSelected ? 'text-white/74' : 'text-slate-500'}`}>
+                              <div className="rounded-2xl border border-current/10 px-3 py-2">
+                                <p className="uppercase tracking-[0.14em] opacity-65">Mentions</p>
+                                <p className={`mt-1 text-sm font-semibold ${isSelected ? 'text-white' : 'text-slate-900'}`}>{company.mentions}</p>
+                              </div>
+                              <div className="rounded-2xl border border-current/10 px-3 py-2">
+                                <p className="uppercase tracking-[0.14em] opacity-65">Negative ratio</p>
+                                <p className={`mt-1 text-sm font-semibold ${isSelected ? 'text-white' : 'text-slate-900'}`}>{formatPercent(company.negativeRatio)}</p>
+                              </div>
+                              <div className="rounded-2xl border border-current/10 px-3 py-2">
+                                <p className="uppercase tracking-[0.14em] opacity-65">Confidence</p>
+                                <p className={`mt-1 text-sm font-semibold ${isSelected ? 'text-white' : 'text-slate-900'}`}>{company.forecastConfidence || 'N/A'}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-4 xl:w-[260px] xl:justify-end">
+                          <div className="min-w-0 flex-1 xl:max-w-[130px]">
+                            <p className={`text-[11px] uppercase tracking-[0.16em] ${isSelected ? 'text-white/55' : 'text-slate-400'}`}>Signal blend</p>
+                            <div className="mt-2">
+                              <SparkBars
+                                tone={toneForSeverity(company.forecastRisk7d)}
+                                values={[
+                                  company.last24hMentions || 1,
+                                  company.mentions || 1,
+                                  company.lifetimeMentions || 1,
+                                  company.negativeSignals || 1,
+                                  (company.forecastConfidence || 1) * 8,
+                                ]}
+                              />
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className={`text-[11px] uppercase tracking-[0.16em] ${isSelected ? 'text-white/55' : 'text-slate-400'}`}>Lifetime</p>
+                            <p className={`font-display mt-2 text-2xl font-semibold ${isSelected ? 'text-white' : 'text-slate-950'}`}>{company.lifetimeMentions}</p>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                toggleWatchlist(company.key)
+                              }}
+                              className={`mt-3 rounded-xl border px-3 py-2 text-[11px] font-medium ${
+                                watchlistKeys.includes(company.key)
+                                  ? 'border-amber-200 bg-amber-50 text-amber-700'
+                                  : isSelected
+                                    ? 'border-white/15 bg-white/10 text-white'
+                                    : 'border-slate-200 bg-white/80 text-slate-500'
+                              }`}
+                            >
+                              {watchlistKeys.includes(company.key) ? 'Watching' : 'Watch'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              <div className="flex items-center justify-between gap-3 pt-2">
+                <p className="text-xs text-slate-500">
+                  Page {companyPage} / {totalCompanyPages} • {filteredCompanies.length} companies
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCompanyPage((current) => Math.max(1, current - 1))}
+                    disabled={companyPage === 1}
+                    className="rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-xs text-slate-600 transition hover:border-sky-200 disabled:opacity-40"
+                  >
+                    Prev
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCompanyPage((current) => Math.min(totalCompanyPages, current + 1))}
+                    disabled={companyPage === totalCompanyPages}
+                    className="rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-xs text-slate-600 transition hover:border-sky-200 disabled:opacity-40"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            </div>
+          </Panel>
+
+          <Panel
+            title={selectedCompany ? selectedCompany.name : 'Company detail'}
+            description={selectedCompany ? `${selectedCompany.industry} • ${selectedCompany.sentimentLabel}` : 'Chọn một company'}
+            action={selectedCompany ? (
+              <button
+                type="button"
+                onClick={() => toggleWatchlist(selectedCompany.key)}
+                className={`rounded-2xl border px-3 py-2 text-xs font-medium ${
+                  watchlistKeys.includes(selectedCompany.key)
+                    ? 'border-amber-200 bg-amber-50 text-amber-700'
+                    : 'border-slate-200 bg-white/80 text-slate-600'
+                }`}
+              >
+                {watchlistKeys.includes(selectedCompany.key) ? 'In watchlist' : 'Add to watchlist'}
+              </button>
+            ) : null}
+          >
+            {selectedCompany ? (
+              <div className="space-y-4">
+                <div className="rounded-[30px] border border-slate-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(240,249,255,0.94),rgba(255,247,237,0.9))] p-5 shadow-[0_24px_58px_-38px_rgba(15,23,42,0.18)]">
+                  <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Selected company</p>
+                      <h3 className="font-display mt-3 text-3xl font-semibold tracking-tight text-slate-950">{selectedCompany.name}</h3>
+                      <p className="mt-2 text-sm text-slate-500">{selectedCompany.industry}</p>
+                      <p className="mt-4 text-sm leading-7 text-slate-600">{selectedCompany.summary}</p>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <Badge tone={toneForScore(selectedCompany.score)}>{selectedCompany.risk}</Badge>
+                        <Badge tone={toneForSeverity(selectedCompany.forecastRisk24h)}>24h forecast {formatForecastLabel(selectedCompany.forecastRisk24h)}</Badge>
+                        <Badge tone={toneForSeverity(selectedCompany.forecastRisk7d)}>7d forecast {formatForecastLabel(selectedCompany.forecastRisk7d)}</Badge>
+                        <Badge tone="warning">Negative ratio {formatPercent(selectedCompany.negativeRatio)}</Badge>
+                        <Badge tone="info">Confidence {selectedCompany.forecastConfidence}</Badge>
+                      </div>
+                    </div>
+
+                    <div className="rounded-[26px] border border-slate-200/20 bg-[linear-gradient(145deg,rgba(15,23,42,0.96),rgba(30,41,59,0.94),rgba(14,116,144,0.78))] p-5 text-white shadow-[0_24px_58px_-36px_rgba(15,23,42,0.42)]">
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">Signal texture</p>
+                          <p className="font-display mt-3 text-3xl font-semibold tracking-tight text-white">{selectedCompany.mentions}</p>
+                          <p className="mt-2 text-sm text-white/70">7d mentions with confidence and negative pressure blended below.</p>
+                        </div>
+                        <Badge tone={toneForSeverity(selectedCompany.forecastRisk7d)}>7d {formatForecastLabel(selectedCompany.forecastRisk7d)}</Badge>
+                      </div>
+                      <div className="mt-4">
+                        <SparkBars
+                          tone={toneForSeverity(selectedCompany.forecastRisk7d)}
+                          values={[
+                            selectedCompany.last24hMentions || 1,
+                            selectedCompany.mentions || 1,
+                            selectedCompany.lifetimeMentions || 1,
+                            (selectedCompany.forecastConfidence || 1) * 8,
+                            selectedCompany.negativeSignals || 1,
+                            selectedCompany.score || 1,
+                          ]}
+                        />
+                      </div>
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        <div className="rounded-2xl border border-white/10 bg-white/8 px-4 py-3">
+                          <p className="text-[11px] uppercase tracking-[0.16em] text-white/55">24h velocity</p>
+                          <p className="mt-2 text-xl font-semibold text-white">{selectedCompany.last24hMentions}</p>
+                        </div>
+                        <div className="rounded-2xl border border-white/10 bg-white/8 px-4 py-3">
+                          <p className="text-[11px] uppercase tracking-[0.16em] text-white/55">Sources</p>
+                          <p className="mt-2 text-xl font-semibold text-white">{selectedCompany.sourceCount}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-5">
+                  <div className="rounded-2xl border border-sky-100 bg-[linear-gradient(135deg,rgba(224,242,254,0.96),rgba(255,255,255,0.92))] px-4 py-3">
+                    <p className="text-xs text-slate-500">Score</p>
+                    <p className="font-display mt-2 text-2xl font-semibold text-slate-900">{selectedCompany.score}</p>
+                  </div>
+                  <div className="rounded-2xl border border-fuchsia-100 bg-[linear-gradient(135deg,rgba(250,245,255,0.96),rgba(255,255,255,0.92))] px-4 py-3">
+                    <p className="text-xs text-slate-500">Trend</p>
+                    <p className="font-display mt-2 text-2xl font-semibold text-slate-900">{selectedCompany.trend}</p>
+                  </div>
+                  <div className="rounded-2xl border border-amber-100 bg-[linear-gradient(135deg,rgba(255,247,237,0.96),rgba(255,255,255,0.92))] px-4 py-3">
+                    <p className="text-xs text-slate-500">7d mentions</p>
+                    <p className="font-display mt-2 text-2xl font-semibold text-slate-900">{selectedCompany.mentions}</p>
+                  </div>
+                  <div className="rounded-2xl border border-rose-100 bg-[linear-gradient(135deg,rgba(255,241,242,0.96),rgba(255,255,255,0.92))] px-4 py-3">
+                    <p className="text-xs text-slate-500">Signals</p>
+                    <p className="font-display mt-2 text-2xl font-semibold text-slate-900">{selectedCompany.negativeSignals}</p>
+                  </div>
+                  <div className="rounded-2xl border border-emerald-100 bg-[linear-gradient(135deg,rgba(236,253,245,0.96),rgba(255,255,255,0.92))] px-4 py-3">
+                    <p className="text-xs text-slate-500">History</p>
+                    <p className="font-display mt-2 text-2xl font-semibold text-slate-900">{selectedCompany.lifetimeMentions}</p>
+                  </div>
+                </div>
+
+                {renderActionablePanel(selectedCompany)}
+
+                <div className="rounded-3xl border border-sky-100 bg-[linear-gradient(135deg,rgba(240,249,255,0.92),rgba(255,255,255,0.96),rgba(255,247,237,0.9))] px-4 py-4">
+                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                    <div className="rounded-2xl border border-white/80 bg-white/60 px-3 py-3">
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Sources</p>
+                      <p className="mt-2 text-sm font-semibold text-slate-900">{selectedCompany.sourceCount}</p>
+                    </div>
+                    <div className="rounded-2xl border border-white/80 bg-white/60 px-3 py-3">
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">24h mentions</p>
+                      <p className="mt-2 text-sm font-semibold text-slate-900">{selectedCompany.last24hMentions}</p>
+                    </div>
+                    <div className="rounded-2xl border border-white/80 bg-white/60 px-3 py-3">
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">7d forecast</p>
+                      <p className="mt-2 text-sm font-semibold text-slate-900">{formatForecastLabel(selectedCompany.forecastRisk7d)}</p>
+                    </div>
+                    <div className="rounded-2xl border border-white/80 bg-white/60 px-3 py-3">
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Confidence</p>
+                      <p className="mt-2 text-sm font-semibold text-slate-900">{selectedCompany.forecastConfidence}</p>
+                    </div>
+                  </div>
+                  <p className="mt-4 text-sm leading-7 text-slate-600">{selectedCompany.forecastSummary}</p>
+                  <div className="mt-4 rounded-2xl border border-white/80 bg-white/60 px-4 py-3">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Forecast drivers</p>
+                      </div>
+                      <div className="w-40">
+                        <SparkBars
+                          tone={toneForSeverity(selectedCompany.forecastRisk7d)}
+                          values={[
+                            selectedCompany.last24hMentions || 1,
+                            selectedCompany.mentions || 1,
+                            selectedCompany.lifetimeMentions || 1,
+                            (selectedCompany.forecastConfidence || 1) * 8,
+                            selectedCompany.negativeSignals || 1,
+                            selectedCompany.score || 1,
+                          ]}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  {selectedCompany.forecastDrivers?.length ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {selectedCompany.forecastDrivers.map((driver) => (
+                        <Badge key={driver} tone="default">{driver}</Badge>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+
+                {renderEvidencePanel(selectedCompany)}
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Latest coverage</p>
+                    </div>
+                    <Badge tone="default">{selectedCompany.articles?.length || 0} linked articles</Badge>
+                  </div>
+                  {(selectedCompany.articles || []).map((article) => (
+                    <a
+                      key={article.id}
+                      href={article.article_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block rounded-2xl border border-slate-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(240,249,255,0.88),rgba(255,247,237,0.84))] px-4 py-3 transition hover:border-sky-200 hover:bg-[linear-gradient(135deg,rgba(240,249,255,0.96),rgba(255,255,255,0.96),rgba(255,237,213,0.84))] hover:shadow-[0_16px_30px_-24px_rgba(14,165,233,0.4)]"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-medium text-slate-900">{article.title}</p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {article.source_name} • seen {article.crawl_count || 1}x • {formatDate(article.last_seen_at || article.published_at)}
+                          </p>
+                        </div>
+                        <ChevronRight className="mt-1 size-4 text-slate-400" />
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">Không có company được chọn.</p>
+            )}
+          </Panel>
+        </div>
+      </div>
+    )
+  }
+
+  function _renderCompanies() {
+    return (
+      <div className="space-y-5">
+        <div className="border-b border-slate-200 pb-5">
+          <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Tracked companies</p>
+          <h1 className="font-display mt-2 text-4xl font-semibold tracking-tight text-slate-900">Companies</h1>
           <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
             Dữ liệu company lấy trực tiếp từ articles đã crawl, vừa theo dõi tín hiệu mới vừa giữ lịch sử mention cũ để phân tích không bị mất mạch.
           </p>
@@ -626,11 +1656,18 @@ export default function App() {
               </div>
               <div className="space-y-2">
                 {paginatedCompanies.map((company) => (
-                <button
+                <div
                   key={company.key}
-                  type="button"
                   onClick={() => setSelectedCompanyKey(company.key)}
-                  className={`float-card grid w-full grid-cols-[minmax(0,1fr)_110px_80px] items-center gap-3 rounded-2xl border px-4 py-3 text-left transition ${
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      setSelectedCompanyKey(company.key)
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  className={`float-card grid w-full grid-cols-[minmax(0,1fr)_110px_80px_92px] items-center gap-3 rounded-2xl border px-4 py-3 text-left transition ${
                     selectedCompany?.key === company.key
                       ? 'border-fuchsia-200 bg-[linear-gradient(90deg,rgba(224,242,254,0.98),rgba(243,232,255,0.92),rgba(255,237,213,0.9))] shadow-[0_20px_36px_-28px_rgba(217,70,239,0.38)]'
                       : 'border-slate-200 bg-[linear-gradient(90deg,rgba(255,255,255,0.98),rgba(248,250,252,0.96),rgba(255,247,237,0.74))] hover:border-sky-200 hover:bg-[linear-gradient(90deg,rgba(240,249,255,0.96),rgba(255,255,255,0.96),rgba(255,237,213,0.74))]'
@@ -647,7 +1684,23 @@ export default function App() {
                       <Badge tone={toneForSeverity(company.forecastRisk7d)}>7d {formatForecastLabel(company.forecastRisk7d)}</Badge>
                     </div>
                   </div>
-                </button>
+                  <div className="text-right">
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        toggleWatchlist(company.key)
+                      }}
+                      className={`rounded-xl border px-3 py-2 text-[11px] font-medium ${
+                        watchlistKeys.includes(company.key)
+                          ? 'border-amber-200 bg-amber-50 text-amber-700'
+                          : 'border-slate-200 bg-white/80 text-slate-500'
+                      }`}
+                    >
+                      {watchlistKeys.includes(company.key) ? 'Watching' : 'Watch'}
+                    </button>
+                  </div>
+                </div>
                 ))}
               </div>
 
@@ -680,6 +1733,19 @@ export default function App() {
           <Panel
             title={selectedCompany ? selectedCompany.name : 'Company detail'}
             description={selectedCompany ? `${selectedCompany.industry} • ${selectedCompany.sentimentLabel}` : 'Chọn một company'}
+            action={selectedCompany ? (
+              <button
+                type="button"
+                onClick={() => toggleWatchlist(selectedCompany.key)}
+                className={`rounded-2xl border px-3 py-2 text-xs font-medium ${
+                  watchlistKeys.includes(selectedCompany.key)
+                    ? 'border-amber-200 bg-amber-50 text-amber-700'
+                    : 'border-slate-200 bg-white/80 text-slate-600'
+                }`}
+              >
+                {watchlistKeys.includes(selectedCompany.key) ? 'In watchlist' : 'Add to watchlist'}
+              </button>
+            ) : null}
           >
             {selectedCompany ? (
               <div className="space-y-4">
@@ -706,12 +1772,15 @@ export default function App() {
                   </div>
                 </div>
 
+                {renderActionablePanel(selectedCompany)}
+
                 <div className="rounded-3xl border border-sky-100 bg-[linear-gradient(135deg,rgba(240,249,255,0.92),rgba(255,255,255,0.96),rgba(255,247,237,0.9))] px-4 py-4">
                   <div className="flex flex-wrap gap-2">
                     <Badge tone="info">{selectedCompany.sourceCount} sources</Badge>
                     <Badge tone="default">{selectedCompany.last24hMentions} mentions / 24h</Badge>
                     <Badge tone="positive">{selectedCompany.lifetimeMentions} mentions all-time</Badge>
                     <Badge tone={toneForScore(selectedCompany.score)}>{selectedCompany.risk}</Badge>
+                    <Badge tone="warning">Negative ratio {formatPercent(selectedCompany.negativeRatio)}</Badge>
                     <Badge tone={toneForSeverity(selectedCompany.forecastRisk24h)}>24h forecast {formatForecastLabel(selectedCompany.forecastRisk24h)}</Badge>
                     <Badge tone={toneForSeverity(selectedCompany.forecastRisk7d)}>7d forecast {formatForecastLabel(selectedCompany.forecastRisk7d)}</Badge>
                     <Badge tone="info">Confidence {selectedCompany.forecastConfidence}</Badge>
@@ -747,6 +1816,8 @@ export default function App() {
                     </div>
                   ) : null}
                 </div>
+
+                {renderEvidencePanel(selectedCompany)}
 
                 <div className="space-y-2">
                   {(selectedCompany.articles || []).map((article) => (
@@ -784,7 +1855,7 @@ export default function App() {
       <div className="space-y-5">
         <div className="border-b border-slate-200 pb-5">
           <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Risk monitoring</p>
-          <h1 className="mt-2 text-4xl font-semibold tracking-tight text-slate-900">Alerts</h1>
+          <h1 className="font-display mt-2 text-4xl font-semibold tracking-tight text-slate-900">Alerts</h1>
           <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
             Alert queue được sinh từ company analytics thật, có tính đến cả mức độ mới và lịch sử mention đang lưu trong database.
           </p>
@@ -794,7 +1865,16 @@ export default function App() {
           <Panel title="Alert queue" description="Các company cần analyst review.">
             <div className="space-y-3">
               {alerts.map((alert) => (
-                <div key={alert.id} className="rounded-2xl border border-slate-200 bg-white px-4 py-4">
+                <button
+                  key={alert.id}
+                  type="button"
+                  onClick={() => setSelectedAlertId(alert.id)}
+                  className={`w-full rounded-2xl border px-4 py-4 text-left transition ${
+                    selectedAlert?.id === alert.id
+                      ? 'border-fuchsia-200 bg-[linear-gradient(135deg,rgba(255,241,242,0.96),rgba(255,255,255,0.96),rgba(250,245,255,0.86))] shadow-[0_18px_36px_-28px_rgba(217,70,239,0.34)]'
+                      : 'border-slate-200 bg-white hover:border-sky-200'
+                  }`}
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-medium text-slate-900">{alert.title}</p>
@@ -806,6 +1886,7 @@ export default function App() {
                         <Badge tone="default">{alert.lifetimeMentions} lifetime</Badge>
                         <Badge tone={toneForSeverity(alert.forecastRisk24h)}>24h {formatForecastLabel(alert.forecastRisk24h)}</Badge>
                         <Badge tone={toneForSeverity(alert.forecastRisk7d)}>7d {formatForecastLabel(alert.forecastRisk7d)}</Badge>
+                        <Badge tone="warning">Negative ratio {formatPercent(alert.negativeRatio)}</Badge>
                       </div>
                       <p className="mt-3 text-sm leading-7 text-slate-500">{alert.forecastSummary}</p>
                       <div className="mt-4 max-w-[220px]">
@@ -823,7 +1904,7 @@ export default function App() {
                     </div>
                     <Badge tone={toneForSeverity(alert.severity)}>{alert.severity}</Badge>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </Panel>
@@ -847,7 +1928,109 @@ export default function App() {
                 {alerts.reduce((sum, item) => sum + (item.lifetimeMentions || 0), 0)}
               </p>
             </div>
+
+            {selectedAlert ? (
+              <div className="space-y-4 rounded-3xl border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(240,249,255,0.96),rgba(255,241,242,0.84))] p-5 shadow-[0_18px_48px_-36px_rgba(15,23,42,0.2)]">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Selected Alert</p>
+                  <p className="mt-3 text-xl font-semibold text-slate-900">{selectedAlert.companyName}</p>
+                  <p className="mt-2 text-sm leading-7 text-slate-600">{selectedAlert.description}</p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3">
+                    <p className="text-xs text-slate-500">Severity</p>
+                    <p className="mt-2 text-2xl font-semibold text-slate-900">{selectedAlert.severity}</p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3">
+                    <p className="text-xs text-slate-500">Model confidence</p>
+                    <p className="mt-2 text-2xl font-semibold text-slate-900">{selectedAlert.explainability?.averageModelConfidence || selectedAlert.forecastConfidence}</p>
+                  </div>
+                </div>
+                {renderActionablePanel(selectedAlert)}
+                {renderEvidencePanel(selectedAlert)}
+              </div>
+            ) : null}
           </div>
+        </div>
+      </div>
+    )
+  }
+
+  function renderCompare() {
+    return (
+      <div className="space-y-5">
+        <div className="border-b border-slate-200 pb-5">
+          <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Watchlist benchmarking</p>
+          <h1 className="font-display mt-2 text-4xl font-semibold tracking-tight text-slate-900">Compare</h1>
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
+            So sánh tối đa 3 thương hiệu để xem brand nào đáng ưu tiên theo mentions, negative ratio, forecast risk và top topics.
+          </p>
+        </div>
+
+        <Panel title="Watchlist" description="Pick up to 3 companies for side-by-side comparison.">
+          <div className="flex flex-wrap gap-2">
+            {companies.slice(0, 18).map((company) => (
+              <button
+                key={`watch-${company.key}`}
+                type="button"
+                onClick={() => toggleWatchlist(company.key)}
+                className={`rounded-2xl border px-3 py-2 text-xs font-medium ${
+                  watchlistKeys.includes(company.key)
+                    ? 'border-fuchsia-200 bg-[linear-gradient(90deg,rgba(224,242,254,0.96),rgba(243,232,255,0.86))] text-slate-900'
+                    : 'border-slate-200 bg-white/80 text-slate-500'
+                }`}
+              >
+                {company.name}
+              </button>
+            ))}
+          </div>
+        </Panel>
+
+        <div className="grid gap-4 xl:grid-cols-3">
+          {compareCompanies.map((company) => (
+            <div key={`compare-${company.key}`} className="rounded-3xl border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(240,249,255,0.94),rgba(255,247,237,0.86))] p-5 shadow-[0_18px_48px_-36px_rgba(15,23,42,0.2)]">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-lg font-semibold text-slate-950">{company.name}</p>
+                  <p className="mt-1 text-sm text-slate-500">{company.industry}</p>
+                </div>
+                <Badge tone={toneForSeverity(company.forecastRisk7d)}>7d {formatForecastLabel(company.forecastRisk7d)}</Badge>
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3">
+                  <p className="text-xs text-slate-500">Mentions</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-900">{company.mentions}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3">
+                  <p className="text-xs text-slate-500">Negative ratio</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-900">{formatPercent(company.negativeRatio)}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3">
+                  <p className="text-xs text-slate-500">Forecast</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-900">{formatForecastLabel(company.forecastRisk7d)}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3">
+                  <p className="text-xs text-slate-500">Top source</p>
+                  <p className="mt-2 text-lg font-semibold text-slate-900">{company.explainability?.strongestSource || 'N/A'}</p>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Top topics</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {(company.topTopics || []).map((topic) => (
+                    <Badge key={`topic-${company.key}-${topic}`} tone="default">{topic}</Badge>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-slate-200 bg-white/80 px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Action bias</p>
+                <p className="mt-2 text-sm leading-7 text-slate-700">{company.actionable?.recommendedAction}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     )
@@ -870,7 +2053,7 @@ export default function App() {
               {isUser ? 'You' : 'AI'}
             </span>
             <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400">
-              {isUser ? 'Analyst Prompt' : 'AI Insight'}
+              {isUser ? 'Analyst Prompt' : 'AI Assistant'}
             </span>
           </div>
 
@@ -915,44 +2098,45 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-transparent px-4 py-4 text-slate-900 lg:px-6">
+    <div className="app-shell min-h-screen bg-transparent px-4 py-4 text-slate-900 lg:px-6">
+      {mobileNavOpen ? (
+        <div className="fixed inset-0 z-40 bg-slate-950/30 backdrop-blur-[3px] lg:hidden" onClick={() => setMobileNavOpen(false)}>
+          <div
+            className="drawer-shell ml-auto flex h-full w-[min(360px,88vw)] flex-col border-l border-white/70 px-5 py-5 shadow-[0_38px_110px_-42px_rgba(15,23,42,0.55)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Navigation</p>
+                <p className="font-display mt-2 text-2xl font-semibold text-slate-950">SentimentX</p>
+              </div>
+              <button type="button" onClick={() => setMobileNavOpen(false)} className="rounded-2xl border border-slate-200 bg-white/80 p-2 text-slate-600">
+                <X className="size-4" />
+              </button>
+            </div>
+            <div className="mt-5 space-y-2">{renderNavButtons('drawer')}</div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="mx-auto grid min-h-[calc(100vh-2rem)] max-w-[1600px] gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
-        <aside className="hidden rounded-[32px] border border-white/45 bg-[linear-gradient(180deg,rgba(211,241,255,0.84),rgba(232,243,255,0.78),rgba(250,232,255,0.72),rgba(255,236,214,0.68))] shadow-[0_28px_90px_-44px_rgba(15,23,42,0.34)] backdrop-blur-xl lg:flex lg:flex-col">
-          <div className="flex items-center gap-3 border-b border-slate-200 px-6 py-6">
-            <div className="flex size-11 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-600 via-cyan-500 to-orange-400 text-white shadow-[0_12px_28px_-14px_rgba(14,165,233,0.75)]">
+        <aside className="sidebar-shell hidden rounded-[36px] lg:sticky lg:top-4 lg:flex lg:h-[calc(100vh-2rem)] lg:flex-col">
+          <div className="flex items-center gap-3 border-b border-slate-200/80 px-6 py-6">
+            <div className="flex size-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(15,23,42,1),rgba(14,116,144,0.92),rgba(180,83,9,0.88))] text-white shadow-[0_16px_34px_-18px_rgba(15,23,42,0.62)]">
               <Sparkles className="size-5" />
             </div>
             <div>
-              <p className="text-xl font-semibold text-slate-950">SentimentX</p>
+              <p className="font-display text-2xl font-semibold text-slate-950">SentimentX</p>
               <p className="text-sm text-slate-500">Enterprise market intelligence</p>
             </div>
           </div>
 
-          <div className="space-y-2 px-4 py-5">
-            {nav.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setActiveView(item.id)}
-                className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
-                  activeView === item.id
-                    ? 'border-fuchsia-200 bg-[linear-gradient(90deg,rgba(224,242,254,0.96),rgba(233,213,255,0.88),rgba(255,237,213,0.92))] text-slate-950 shadow-[0_22px_42px_-28px_rgba(217,70,239,0.34)]'
-                    : 'border-transparent text-slate-500 hover:border-slate-200 hover:bg-[linear-gradient(90deg,rgba(248,250,252,0.92),rgba(240,249,255,0.84),rgba(255,237,213,0.7))]'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <item.icon className="size-4" />
-                  <span className="text-sm font-medium">{item.label}</span>
-                </div>
-                <p className="mt-2 text-xs text-slate-400">{item.description}</p>
-              </button>
-            ))}
-          </div>
+          <div className="space-y-2 px-4 py-5">{renderNavButtons()}</div>
 
-          <div className="mt-auto px-4 pb-4">
-                <div className="rounded-3xl border border-sky-100 bg-[linear-gradient(145deg,rgba(224,242,254,0.98),rgba(255,255,255,0.94),rgba(244,208,255,0.84),rgba(255,237,213,0.92))] px-4 py-4">
+          <div className="mt-auto hidden px-4 pb-4">
+                <div className="rounded-[28px] border border-slate-200/80 bg-[linear-gradient(155deg,rgba(255,255,255,0.94),rgba(245,247,250,0.9),rgba(255,248,240,0.82))] px-4 py-4">
               <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Workspace</p>
-              <p className="mt-3 text-lg font-semibold text-slate-950">BAV Enterprise</p>
+              <p className="font-display mt-3 text-xl font-semibold text-slate-950">BAV Enterprise</p>
               <p className="mt-2 text-sm leading-7 text-slate-600">
                 Dashboard ưu tiên workflow thật, nhiều màu hơn nhưng vẫn data-dense. Dữ liệu mới vào không làm mất dữ liệu cũ.
               </p>
@@ -960,21 +2144,25 @@ export default function App() {
           </div>
         </aside>
 
-        <main className="rounded-[32px] border border-white/40 bg-[linear-gradient(180deg,rgba(246,251,255,0.84),rgba(234,244,255,0.78),rgba(250,236,248,0.72),rgba(255,242,230,0.64))] shadow-[0_30px_110px_-52px_rgba(15,23,42,0.36)] backdrop-blur-xl">
-          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4 sm:px-6">
+        <main className="main-shell rounded-[36px] border border-white/50 shadow-[0_30px_110px_-52px_rgba(15,23,42,0.36)] backdrop-blur-xl">
+          <div className="flex items-center justify-between border-b border-slate-200/80 px-4 py-4 sm:px-6">
             <div className="flex items-center gap-3">
-              <button type="button" className="rounded-xl border border-slate-200 p-2 text-slate-600 lg:hidden">
+              <button type="button" onClick={() => setMobileNavOpen(true)} className="rounded-2xl border border-slate-200 bg-white/80 p-2 text-slate-600 lg:hidden">
                 <PanelLeft className="size-5" />
               </button>
               <div>
                 <p className="text-xs uppercase tracking-[0.18em] text-slate-500">SentimentX Console</p>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <p className="font-display text-[1.45rem] font-semibold leading-none text-slate-950">{activeNavItem.label}</p>
+                  <Badge tone="default">{activeNavItem.description}</Badge>
+                </div>
                 <p className="text-sm text-slate-500">
                   {loading ? 'Loading data...' : `${companies.length} companies • ${alerts.length} alerts`}
                 </p>
               </div>
             </div>
             <div className="relative hidden md:block">
-              <div className="flex min-w-[360px] items-center gap-2 rounded-2xl border border-white/70 bg-[linear-gradient(90deg,rgba(255,255,255,0.98),rgba(224,242,254,0.94),rgba(243,232,255,0.84),rgba(255,237,213,0.86))] px-4 py-2.5 text-sm text-slate-500 shadow-[0_18px_34px_-24px_rgba(59,130,246,0.28)]">
+              <div className="search-shell flex min-w-[360px] items-center gap-2 rounded-2xl px-4 py-2.5 text-sm text-slate-500 shadow-[0_18px_34px_-24px_rgba(15,23,42,0.2)]">
                 <Search className="size-4" />
                 <input
                   value={searchQuery}
@@ -1030,7 +2218,7 @@ export default function App() {
                               <button
                                 key={alert.id}
                                 type="button"
-                                onClick={handleSelectAlertFromSearch}
+                                onClick={() => handleSelectAlertFromSearch(alert.id)}
                                 className="flex w-full items-start justify-between rounded-2xl border border-slate-200 bg-[linear-gradient(90deg,rgba(255,255,255,0.98),rgba(255,247,237,0.92),rgba(255,228,230,0.84))] px-3 py-3 text-left transition hover:border-sky-200 hover:bg-[linear-gradient(90deg,rgba(255,241,242,0.92),rgba(255,255,255,0.96),rgba(255,237,213,0.82))]"
                               >
                                 <div>
@@ -1074,6 +2262,27 @@ export default function App() {
             </div>
           </div>
 
+          <div className="border-b border-slate-200/80 px-4 py-4 md:hidden">
+            <div className="flex gap-2 overflow-x-auto pb-1">{renderNavButtons('compact')}</div>
+            <div className="search-shell mt-4 flex items-center gap-2 rounded-2xl px-4 py-3 text-sm text-slate-500 shadow-[0_18px_34px_-24px_rgba(15,23,42,0.2)]">
+              <Search className="size-4" />
+              <input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search company, topic, headline..."
+                className="w-full bg-transparent text-slate-700 outline-none placeholder:text-slate-400"
+              />
+              {searchQuery ? (
+                <button type="button" onClick={clearSearch} className="text-xs text-slate-400 hover:text-slate-600">
+                  Clear
+                </button>
+              ) : null}
+            </div>
+            {renderSearchResultsPanel(
+              'mt-3 rounded-3xl border border-white/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.97),rgba(236,246,255,0.94),rgba(255,240,246,0.9))] p-4 shadow-[0_28px_90px_-40px_rgba(15,23,42,0.22)] backdrop-blur-xl',
+            )}
+          </div>
+
           <div className="px-4 py-5 sm:px-6">
             {loading ? (
               <div className="flex min-h-[60vh] items-center justify-center">
@@ -1087,12 +2296,14 @@ export default function App() {
                 <p className="text-base font-semibold text-rose-700">Không thể tải dữ liệu</p>
                 <p className="mt-2 text-sm text-rose-600">{error}</p>
               </div>
+            ) : activeView === 'compare' ? (
+              renderCompare()
             ) : activeView === 'companies' ? (
-              renderCompanies()
+              renderCompaniesV2()
             ) : activeView === 'alerts' ? (
               renderAlerts()
             ) : (
-              renderOverview()
+              renderOverviewV2()
             )}
           </div>
         </main>
@@ -1174,7 +2385,6 @@ export default function App() {
                 <Badge tone="info">
                   {activeView === 'companies' && selectedCompany ? `Context company: ${selectedCompany.name}` : 'Context overall dashboard'}
                 </Badge>
-                <Badge tone="default">Shift+Enter for newline</Badge>
               </div>
               <div className="flex items-end gap-3">
                 <textarea

@@ -458,6 +458,40 @@ def extract_companies_with_fallback(text: str, locale: str, model: str | None) -
     return [], model or NER_MODEL, None, "empty-fallback"
 
 
+def extract_companies_from_article_with_fallback(
+    title: str,
+    description_text: str,
+    locale: str,
+    model: str | None,
+) -> tuple[list[dict[str, Any]], str, Any, str, list[str]]:
+    article_preview = f"{title.strip()} | {description_text.strip()}".strip(" |")
+    combined_text = ". ".join(part for part in [title.strip(), description_text.strip()] if part)
+    errors: list[str] = []
+
+    try:
+        companies, used_model, usage = extract_companies_from_article(title, description_text, locale, model)
+        log_ner_event("article", article_preview, companies)
+        return companies, used_model, usage, "article", errors
+    except Exception as error:
+        errors.append(f"article:{error}")
+
+    if len(combined_text) >= 3:
+        try:
+            companies, used_model, usage = extract_companies_from_text(combined_text, locale, model)
+            log_ner_event("article-text-fallback", article_preview, companies, errors)
+            return companies, used_model, usage, "article-text-fallback", errors
+        except Exception as error:
+            errors.append(f"article-text-fallback:{error}")
+
+        heuristic_companies = build_heuristic_candidates(combined_text)
+        if heuristic_companies:
+            log_ner_event("article-heuristic-fallback", article_preview, heuristic_companies, errors)
+            return heuristic_companies, model or NER_MODEL, None, "article-heuristic-fallback", errors
+
+    log_ner_event("article-empty-fallback", article_preview, [], errors)
+    return [], model or NER_MODEL, None, "article-empty-fallback", errors
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {
@@ -492,19 +526,18 @@ def ner_extract_article(request: ArticleNerRequest) -> dict[str, Any]:
     if len(request.title.strip()) < 3 and len(request.description_text.strip()) < 3:
         raise HTTPException(status_code=400, detail="Article text must be at least 3 characters long")
 
-    try:
-        companies, used_model, usage = extract_companies_from_article(
-            request.title,
-            request.description_text,
-            request.locale,
-            request.model,
-        )
-    except Exception as error:
-        raise HTTPException(status_code=502, detail=f"OpenAI request failed: {error}") from error
+    companies, used_model, usage, mode, errors = extract_companies_from_article_with_fallback(
+        request.title,
+        request.description_text,
+        request.locale,
+        request.model,
+    )
 
     return {
         "companies": companies,
         "model": used_model,
+        "mode": mode,
+        "errors": errors,
         "usage": {
             "input_tokens": getattr(usage, "input_tokens", None) if usage else None,
             "output_tokens": getattr(usage, "output_tokens", None) if usage else None,
