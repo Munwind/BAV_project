@@ -2,7 +2,7 @@ const seeds = require('../config/watchlist')
 const { createHash } = require('crypto')
 const { query, withTransaction } = require('../db')
 const { extractArticleEntities } = require('./ai-client')
-const { normalizeText, countOccurrences, getSentimentSignal } = require('./sentiment-heuristics')
+const { normalizeText, getSentimentSignal } = require('./sentiment-heuristics')
 
 const COMPANY_PREFIX_REGEX = /^(?:ctcp|công ty cổ phần|cong ty co phan|công ty cp|cong ty cp|công ty tnhh|cong ty tnhh|tập đoàn|tap doan|tổng công ty|tong cong ty|ngân hàng|ngan hang)\s+/i
 const ORG_PATTERN = /\b(?:CTCP|Công ty Cổ phần|Công ty CP|Công ty TNHH|Tập đoàn|Tổng Công ty|Ngân hàng)\s+[A-ZÀ-ỴĐ][^,.;:\n()]{2,90}/gu
@@ -21,6 +21,23 @@ const INVALID_ENTITY_PATTERNS = [
   /\bgan \d+\b/i,
   /\bkhoan lo\b/i,
 ]
+
+function isYouTubeCommentArticle(article) {
+  return article?.rawItem?.platform === 'youtube'
+    || String(article?.sourceKey || '').startsWith('youtube-')
+}
+
+function buildEntityMatchingText(article) {
+  const descriptionText = article?.descriptionText || article?.description_text || ''
+  if (!isYouTubeCommentArticle(article)) {
+    return [article?.title, descriptionText].filter(Boolean).join('. ')
+  }
+
+  const videoTitle = article?.rawItem?.videoTitle || article?.title || ''
+  const query = article?.rawItem?.query || ''
+
+  return [videoTitle, descriptionText, query].filter(Boolean).join('. ')
+}
 
 function cleanEntityName(value) {
   return String(value || '')
@@ -61,13 +78,35 @@ function mergeCandidate(target, candidate) {
   target.sourceMode = target.sourceMode === 'seed' ? 'seed' : candidate.sourceMode
 }
 
-function buildSeedCandidates(text) {
-  const normalizedText = normalizeText(text)
+function escapeRegex(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
 
+function isTickerAlias(value) {
+  return /^[A-Z]{2,5}$/.test(String(value || '').trim())
+}
+
+function countAliasMentions(text, alias) {
+  const normalizedAlias = normalizeText(alias)
+  if (!text || !normalizedAlias) {
+    return 0
+  }
+
+  if (isTickerAlias(alias)) {
+    const pattern = new RegExp(`(^|[^A-Za-z0-9])${escapeRegex(String(alias).trim())}(?=$|[^A-Za-z0-9])`, 'g')
+    return [...String(text).matchAll(pattern)].length
+  }
+
+  const normalizedText = normalizeText(text)
+  const pattern = new RegExp(`(^|\\s)${escapeRegex(normalizedAlias)}(?=\\s|$)`, 'g')
+  return [...normalizedText.matchAll(pattern)].length
+}
+
+function buildSeedCandidates(text) {
   return seeds
     .map((seed) => {
-      const aliases = [seed.name, ...(seed.aliases || []), seed.ticker].filter(Boolean).map((item) => normalizeText(item))
-      const mentionCount = aliases.reduce((max, alias) => Math.max(max, countOccurrences(normalizedText, alias)), 0)
+      const aliases = [seed.name, ...(seed.aliases || []), seed.ticker].filter(Boolean)
+      const mentionCount = aliases.reduce((max, alias) => Math.max(max, countAliasMentions(text, alias)), 0)
 
       if (!mentionCount) {
         return null
@@ -157,8 +196,10 @@ function buildRegexCandidates(text) {
 }
 
 function extractEntitiesFromArticle(article) {
-  const text = [article.title, article.descriptionText || article.description_text || ''].filter(Boolean).join('. ')
-  const candidates = [...buildSeedCandidates(text), ...buildRegexCandidates(text)]
+  const text = buildEntityMatchingText(article)
+  const candidates = isYouTubeCommentArticle(article)
+    ? [...buildSeedCandidates(text)]
+    : [...buildSeedCandidates(text), ...buildRegexCandidates(text)]
   const deduped = new Map()
 
   for (const candidate of candidates) {
@@ -228,6 +269,78 @@ async function saveCachedAiCandidates(contentHash, companies, runner = { query }
   )
 }
 
+async function getDatabaseAliasCandidates(article, runner = { query }) {
+  const text = buildEntityMatchingText(article)
+  const normalizedText = normalizeText(text)
+
+  if (!normalizedText) {
+    return []
+  }
+
+  const result = await runner.query(
+    `
+      SELECT
+        e.canonical_name,
+        e.ticker,
+        e.industry,
+        e.source_mode,
+        e.confidence,
+        ea.alias,
+        ea.normalized_alias,
+        ea.confidence AS alias_confidence
+      FROM entity_aliases ea
+      JOIN entities e ON e.id = ea.entity_id
+      WHERE e.entity_type = 'company'
+        AND (
+          e.source_mode = 'seed'
+          OR e.ticker IS NOT NULL
+          OR e.confidence >= 0.95
+        )
+    `,
+  )
+
+  const deduped = new Map()
+
+  for (const row of result.rows) {
+    const alias = String(row.normalized_alias || '')
+    if (!alias || alias.length < 3) continue
+    if (!normalizedText.includes(alias)) continue
+    if (
+      row.source_mode !== 'seed'
+      && /^[A-Z]{3,5}$/.test(String(row.alias || ''))
+    ) {
+      continue
+    }
+
+    const canonicalName = cleanEntityName(row.canonical_name || '')
+    if (!isUsefulEntityName(canonicalName)) continue
+    const mentionCount = countAliasMentions(text, row.alias || alias)
+    if (!mentionCount) continue
+
+    const candidate = {
+      canonicalName,
+      normalizedName: normalizeText(canonicalName),
+      entityType: 'company',
+      industry: row.industry || null,
+      ticker: row.ticker || null,
+      confidence: Math.min(Math.max(Number(row.alias_confidence || row.confidence || 0.8), 0.75), 0.99),
+      sourceMode: 'db-alias',
+      rawText: row.alias || canonicalName,
+      mentionCount,
+    }
+
+    const key = candidate.ticker ? `${candidate.normalizedName}:${candidate.ticker}` : candidate.normalizedName
+    if (!deduped.has(key)) {
+      deduped.set(key, candidate)
+      continue
+    }
+
+    mergeCandidate(deduped.get(key), candidate)
+  }
+
+  return [...deduped.values()]
+}
+
 function normalizeRemoteCandidate(candidate) {
   const canonicalName = cleanEntityName(candidate?.name || '')
   if (!isUsefulEntityName(canonicalName)) {
@@ -254,6 +367,25 @@ function normalizeRemoteCandidate(candidate) {
 
 async function resolveEntityCandidates(article, { contentHash = null, runner = { query } } = {}) {
   const ruleCandidates = extractEntitiesFromArticle(article)
+  if (isYouTubeCommentArticle(article)) {
+    const dbAliasCandidates = await getDatabaseAliasCandidates(article, runner)
+    const merged = new Map()
+
+    for (const candidate of [...ruleCandidates, ...dbAliasCandidates]) {
+      const key = candidate.ticker ? `${candidate.normalizedName}:${candidate.ticker}` : candidate.normalizedName
+      if (!merged.has(key)) {
+        merged.set(key, candidate)
+        continue
+      }
+      mergeCandidate(merged.get(key), candidate)
+    }
+
+    return {
+      candidates: [...merged.values()],
+      source: merged.size ? 'youtube-db-alias' : 'youtube-rule-only',
+    }
+  }
+
   if (ruleCandidates.length) {
     return {
       candidates: ruleCandidates,
@@ -327,7 +459,11 @@ function isCandidateGroundedInArticle(articleText, candidate) {
     return true
   }
 
-  return Boolean(ticker && articleText.includes(`:${candidate.ticker}`))
+  if (!ticker) {
+    return false
+  }
+
+  return countAliasMentions(articleText, candidate.ticker) > 0
 }
 
 async function upsertEntityCandidate(candidate, runner = { query }) {
@@ -470,7 +606,16 @@ async function syncArticleEntitiesForArticle({ articleId, article, entityContent
     }
 
     const { candidates, source } = await resolveEntityCandidates(article, { contentHash: effectiveHash, runner })
-    const articleText = [article.title, article.descriptionText || article.description_text || ''].filter(Boolean).join('. ')
+    const articleText = buildEntityMatchingText(article)
+    const existingLinks = await runner.query(
+      `
+        SELECT entity_id
+        FROM article_entities
+        WHERE article_id = $1
+      `,
+      [articleId],
+    )
+    const touchedEntityIds = new Set(existingLinks.rows.map((row) => Number(row.entity_id)).filter(Boolean))
 
     await runner.query('DELETE FROM article_entities WHERE article_id = $1', [articleId])
 
@@ -492,6 +637,7 @@ async function syncArticleEntitiesForArticle({ articleId, article, entityContent
         skipped: false,
         source,
         links: [],
+        touchedEntityIds: [...touchedEntityIds],
       }
     }
 
@@ -546,6 +692,7 @@ async function syncArticleEntitiesForArticle({ articleId, article, entityContent
       )
 
       links.push(entity)
+      touchedEntityIds.add(Number(entity.id))
     }
 
     await runner.query(
@@ -565,6 +712,7 @@ async function syncArticleEntitiesForArticle({ articleId, article, entityContent
       skipped: false,
       source,
       links,
+      touchedEntityIds: [...touchedEntityIds],
     }
   })
 }

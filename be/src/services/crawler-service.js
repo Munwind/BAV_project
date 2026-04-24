@@ -7,6 +7,7 @@ const Parser = require('rss-parser')
 const { decode } = require('he')
 const env = require('../config/env')
 const crawlerSources = require('../config/crawler-sources')
+const youtubeSources = require('../config/youtube-sources')
 const { query } = require('../db')
 const { seedKnownEntities, syncArticleEntitiesForArticle } = require('./entity-service')
 
@@ -15,6 +16,30 @@ const parser = new Parser({
     'User-Agent': 'SentimentXBot/1.0 (+https://sentimentx.local)',
   },
 })
+
+async function fetchJson(url) {
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': 'SentimentXBot/1.0 (+https://sentimentx.local)',
+      Accept: 'application/json',
+    },
+    signal: AbortSignal.timeout(env.feedRequestTimeoutMs),
+  })
+
+  let payload = null
+  try {
+    payload = await response.json()
+  } catch {
+    payload = null
+  }
+
+  if (!response.ok) {
+    const detail = payload?.error?.message || payload?.error || `Request failed with status ${response.status}`
+    throw new Error(detail)
+  }
+
+  return payload
+}
 
 function decodeBuffer(buffer, contentType = '') {
   const lowerType = String(contentType || '').toLowerCase()
@@ -249,6 +274,190 @@ function computeEntityContentHash(article) {
   return createHash('sha256').update(content).digest('hex')
 }
 
+function buildYouTubeSearchUrl(queryText) {
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(queryText)}`
+}
+
+function buildYouTubePublishedAfter(hours) {
+  return new Date(Date.now() - hours * 60 * 60 * 1000).toISOString()
+}
+
+function buildYouTubeVideoUrl(videoId, commentId) {
+  const base = `https://www.youtube.com/watch?v=${videoId}`
+  return commentId ? `${base}&lc=${commentId}` : base
+}
+
+function normalizeYouTubeVideo(item) {
+  return {
+    videoId: item?.id?.videoId,
+    title: decode(String(item?.snippet?.title || '').trim()),
+    descriptionText: decode(String(item?.snippet?.description || '').trim()),
+    channelId: item?.snippet?.channelId || null,
+    channelTitle: item?.snippet?.channelTitle || null,
+    publishedAt: item?.snippet?.publishedAt || null,
+    thumbnailUrl:
+      item?.snippet?.thumbnails?.high?.url
+      || item?.snippet?.thumbnails?.medium?.url
+      || item?.snippet?.thumbnails?.default?.url
+      || null,
+    liveBroadcastContent: item?.snippet?.liveBroadcastContent || 'none',
+  }
+}
+
+function mergeYouTubeVideoStats(videos, statsItems = []) {
+  const statsMap = new Map(
+    (statsItems || []).map((item) => [String(item?.id || ''), item]),
+  )
+
+  return videos.map((video) => {
+    const stats = statsMap.get(String(video.videoId)) || {}
+    const commentCount = Number(stats?.statistics?.commentCount || 0)
+    const privacyStatus = stats?.status?.privacyStatus || 'public'
+
+    return {
+      ...video,
+      commentCount,
+      privacyStatus,
+      embeddable: stats?.status?.embeddable !== false,
+    }
+  })
+}
+
+function filterEligibleYouTubeVideos(videos = []) {
+  return videos.filter((video) => (
+    video.videoId
+    && video.title
+    && video.privacyStatus === 'public'
+    && video.embeddable !== false
+    && video.liveBroadcastContent === 'none'
+    && Number(video.commentCount || 0) > 0
+  ))
+}
+
+function normalizeYouTubeCommentArticle(source, video, thread) {
+  const topLevel = thread?.snippet?.topLevelComment?.snippet || {}
+  const threadId = thread?.id || thread?.snippet?.topLevelComment?.id
+  const text = String(topLevel.textDisplay || topLevel.textOriginal || '').trim()
+
+  return {
+    sourceKey: source.key,
+    sourceName: source.name,
+    sourceSiteUrl: source.siteUrl,
+    sourceCategory: source.category,
+    feedTitle: source.name,
+    feedLink: buildYouTubeSearchUrl(source.query),
+    title: `[YouTube] ${video.title}`,
+    descriptionHtml: '',
+    descriptionText: text,
+    articleUrl: buildYouTubeVideoUrl(video.videoId, threadId),
+    guid: `youtube-comment:${threadId}`,
+    imageUrl: video.thumbnailUrl,
+    authorName: topLevel.authorDisplayName || video.channelTitle || null,
+    publishedAt: topLevel.publishedAt || video.publishedAt || null,
+    rawItem: {
+      platform: 'youtube',
+      query: source.query,
+      channelId: video.channelId,
+      channelTitle: video.channelTitle,
+      videoId: video.videoId,
+      videoTitle: video.title,
+      videoPublishedAt: video.publishedAt,
+      commentThreadId: threadId,
+      comment: {
+        likeCount: topLevel.likeCount || 0,
+        replyCount: thread?.snippet?.totalReplyCount || 0,
+        textDisplay: text,
+      },
+    },
+  }
+}
+
+function buildYouTubeSearchParams(source, { ignoreLookback = false } = {}) {
+  const params = new URLSearchParams()
+  params.set('key', env.youtubeApiKey)
+  params.set('part', 'snippet')
+  params.set('type', 'video')
+  params.set('order', 'date')
+  params.set('maxResults', String(env.youtubeSearchMaxResults))
+  params.set('relevanceLanguage', source.language || 'vi')
+  params.set('regionCode', source.regionCode || 'VN')
+  params.set('safeSearch', 'moderate')
+  params.set('videoEmbeddable', 'true')
+  if (!ignoreLookback) {
+    params.set('publishedAfter', buildYouTubePublishedAfter(env.youtubeLookbackHours))
+  }
+  if (source.query) {
+    params.set('q', source.query)
+  }
+  if (source.channelId) {
+    params.set('channelId', source.channelId)
+  }
+
+  return params
+}
+
+async function fetchEligibleYouTubeVideos(source, options = {}) {
+  const params = buildYouTubeSearchParams(source, options)
+
+  const payload = await fetchJson(`https://www.googleapis.com/youtube/v3/search?${params}`)
+  const videos = (payload.items || [])
+    .map(normalizeYouTubeVideo)
+    .filter((item) => item.videoId && item.title)
+
+  if (!videos.length) {
+    return []
+  }
+
+  const detailsParams = new URLSearchParams({
+    key: env.youtubeApiKey,
+    part: 'statistics,status',
+    id: videos.map((item) => item.videoId).join(','),
+  })
+  const detailsPayload = await fetchJson(`https://www.googleapis.com/youtube/v3/videos?${detailsParams}`)
+
+  return filterEligibleYouTubeVideos(
+    mergeYouTubeVideoStats(videos, detailsPayload.items || []),
+  )
+}
+
+async function searchYouTubeVideos(source) {
+  if (!env.youtubeApiKey) {
+    return []
+  }
+
+  const recentVideos = await fetchEligibleYouTubeVideos(source)
+  if (recentVideos.length) {
+    return recentVideos
+  }
+
+  return fetchEligibleYouTubeVideos(source, { ignoreLookback: true })
+}
+
+async function listYouTubeCommentThreads(videoId) {
+  if (!env.youtubeApiKey) {
+    return []
+  }
+
+  const params = new URLSearchParams({
+    key: env.youtubeApiKey,
+    part: 'snippet',
+    videoId,
+    maxResults: String(env.youtubeCommentMaxResults),
+    order: 'relevance',
+    textFormat: 'plainText',
+  })
+
+  try {
+    const payload = await fetchJson(`https://www.googleapis.com/youtube/v3/commentThreads?${params}`)
+    return payload.items || []
+  } catch (error) {
+    if (/commentsDisabled|videoNotFound/i.test(error.message)) {
+      return []
+    }
+    throw error
+  }
+}
+
 async function mapWithConcurrency(items, limit, mapper) {
   const results = new Array(items.length)
   let nextIndex = 0
@@ -389,9 +598,10 @@ async function crawlSingleFeed(source) {
   }
 
   const items = feedItems.map((item) => normalizeArticle(source, item, feed))
+  const touchedEntityIds = new Set()
   const results = await mapWithConcurrency(items, env.entityExtractionConcurrency, async (article) => {
     if (!article.guid || !article.articleUrl || !article.title) {
-      return { stored: 0, skipped: 0 }
+      return { stored: 0, skipped: 0, touchedEntityIds: [] }
     }
 
     const articleRecord = await upsertArticle(sourceId, article)
@@ -405,11 +615,17 @@ async function crawlSingleFeed(source) {
     return {
       stored: 1,
       skipped: syncResult?.skipped ? 1 : 0,
+      touchedEntityIds: syncResult?.touchedEntityIds || [],
     }
   })
 
   const storedCount = results.reduce((sum, item) => sum + item.stored, 0)
   const skippedEntityCount = results.reduce((sum, item) => sum + item.skipped, 0)
+  for (const result of results) {
+    for (const entityId of result.touchedEntityIds || []) {
+      if (entityId) touchedEntityIds.add(Number(entityId))
+    }
+  }
 
   await query('UPDATE rss_sources SET last_crawled_at = NOW() WHERE id = $1', [sourceId])
 
@@ -419,16 +635,105 @@ async function crawlSingleFeed(source) {
     fetchedCount: items.length,
     storedCount,
     skippedEntityCount,
+    touchedEntityIds: [...touchedEntityIds],
+  }
+}
+
+async function crawlSingleYouTubeSource(source) {
+  if (!env.youtubeApiKey) {
+    return {
+      sourceKey: source.key,
+      sourceName: source.name,
+      fetchedCount: 0,
+      storedCount: 0,
+      skippedEntityCount: 0,
+      touchedEntityIds: [],
+      skipped: true,
+      reason: 'YOUTUBE_API_KEY is not configured',
+    }
+  }
+
+  const sourceId = await upsertSource({
+    key: source.key,
+    name: source.name,
+    siteUrl: source.siteUrl,
+    rssUrl: buildYouTubeSearchUrl(source.query),
+    category: source.category,
+    language: source.language,
+  })
+  const videos = await searchYouTubeVideos(source)
+  const touchedEntityIds = new Set()
+  let fetchedCount = 0
+  let storedCount = 0
+  let skippedEntityCount = 0
+
+  for (const video of videos) {
+    const threads = await listYouTubeCommentThreads(video.videoId)
+    fetchedCount += threads.length
+
+    for (const thread of threads) {
+      const article = normalizeYouTubeCommentArticle(source, video, thread)
+      if (!article.guid || !article.articleUrl || !article.title || !article.descriptionText) {
+        continue
+      }
+
+      const articleRecord = await upsertArticle(sourceId, article)
+      const syncResult = await syncArticleEntitiesForArticle({
+        articleId: articleRecord.id,
+        article,
+        entityContentHash: articleRecord.entityContentHash,
+        skipIfUnchanged: articleRecord.entityAlreadyProcessed,
+      })
+
+      storedCount += 1
+      skippedEntityCount += syncResult?.skipped ? 1 : 0
+      for (const entityId of syncResult?.touchedEntityIds || []) {
+        if (entityId) touchedEntityIds.add(Number(entityId))
+      }
+    }
+  }
+
+  await query('UPDATE rss_sources SET last_crawled_at = NOW() WHERE id = $1', [sourceId])
+
+  return {
+    sourceKey: source.key,
+    sourceName: source.name,
+    fetchedCount,
+    storedCount,
+    skippedEntityCount,
+    touchedEntityIds: [...touchedEntityIds],
   }
 }
 
 async function crawlAllFeeds() {
   const runs = []
+  const touchedEntityIds = new Set()
 
   for (const source of crawlerSources) {
     try {
       const result = await crawlSingleFeed(source)
       runs.push(result)
+      for (const entityId of result.touchedEntityIds || []) {
+        if (entityId) touchedEntityIds.add(Number(entityId))
+      }
+    } catch (error) {
+      runs.push({
+        sourceKey: source.key,
+        sourceName: source.name,
+        fetchedCount: 0,
+        storedCount: 0,
+        error: error.message,
+      })
+    }
+  }
+
+  for (const source of youtubeSources) {
+    try {
+      const result = await crawlSingleYouTubeSource(source)
+      runs.push(result)
+      for (const entityId of result.touchedEntityIds || []) {
+        if (entityId) touchedEntityIds.add(Number(entityId))
+      }
     } catch (error) {
       runs.push({
         sourceKey: source.key,
@@ -443,6 +748,7 @@ async function crawlAllFeeds() {
   return {
     totalSources: runs.length,
     totalStored: runs.reduce((sum, item) => sum + item.storedCount, 0),
+    touchedEntityIds: [...touchedEntityIds],
     runs,
   }
 }
@@ -520,14 +826,70 @@ async function listSources() {
     `,
   )
 
-  return result.rows
+  const configuredMap = new Map(
+    getCrawlerSources().map((source) => [String(source.key), source]),
+  )
+  const crawledMap = new Map(
+    result.rows.map((row) => [String(row.source_key), row]),
+  )
+
+  const merged = []
+
+  for (const [key, source] of configuredMap.entries()) {
+    const crawled = crawledMap.get(key)
+    merged.push({
+      id: crawled?.id || null,
+      source_key: key,
+      source_name: crawled?.source_name || source.name,
+      site_url: crawled?.site_url || source.siteUrl,
+      rss_url: crawled?.rss_url || source.rssUrl,
+      category: crawled?.category || source.category,
+      language_code: crawled?.language_code || source.language || 'vi',
+      last_crawled_at: crawled?.last_crawled_at || null,
+      created_at: crawled?.created_at || null,
+      updated_at: crawled?.updated_at || null,
+      platform: source.platform || 'rss',
+      query: source.query || null,
+    })
+  }
+
+  for (const row of result.rows) {
+    if (configuredMap.has(String(row.source_key))) continue
+    merged.push({
+      ...row,
+      platform: 'rss',
+      query: null,
+    })
+  }
+
+  return merged.sort((left, right) => {
+    if (left.last_crawled_at && right.last_crawled_at) {
+      return new Date(right.last_crawled_at).getTime() - new Date(left.last_crawled_at).getTime()
+    }
+    if (left.last_crawled_at) return -1
+    if (right.last_crawled_at) return 1
+    return String(left.source_name || '').localeCompare(String(right.source_name || ''), 'vi')
+  })
 }
 
 function getCrawlerSources() {
-  return crawlerSources
+  return [...crawlerSources, ...youtubeSources.map((source) => ({
+    key: source.key,
+    name: source.name,
+    siteUrl: source.siteUrl,
+    rssUrl: buildYouTubeSearchUrl(source.query),
+    category: source.category,
+    language: source.language,
+    platform: 'youtube',
+    query: source.query,
+  }))]
 }
 
 module.exports = {
+  buildYouTubeSearchUrl,
+  filterEligibleYouTubeVideos,
+  mergeYouTubeVideoStats,
+  normalizeYouTubeCommentArticle,
   initializeDatabase,
   crawlAllFeeds,
   listArticles,

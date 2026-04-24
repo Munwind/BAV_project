@@ -8,6 +8,7 @@ services:
       - "5173:5173"
     environment:
       VITE_API_BASE_URL: http://localhost:8080/api
+      VITE_ENABLE_CRAWLER: "true"
     depends_on:
       be:
         condition: service_started
@@ -31,7 +32,6 @@ services:
       POSTGRES_DB: sentimentx
       AUTO_INIT_DB: true
       AI_SERVICE_URL: http://ai:8000
-      ENTITY_EXTRACTION_CONCURRENCY: ${ENTITY_EXTRACTION_CONCURRENCY:-4}
     depends_on:
       postgres:
         condition: service_healthy
@@ -48,6 +48,7 @@ services:
     ports:
       - "8000:8000"
     environment:
+      PORT: 8000
       AI_SERVICE_NAME: sentimentx-ai
 
   postgres:

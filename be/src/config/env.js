@@ -37,6 +37,13 @@ const env = {
   postgresDb: process.env.POSTGRES_DB || 'sentimentx',
   aiServiceUrl: buildServiceUrl(),
   aiArticleLimit: Math.min(Math.max(toNumber(process.env.AI_ARTICLE_LIMIT, 10), 3), 20),
+  youtubeApiKey: process.env.YOUTUBE_API_KEY || '',
+  youtubeSearchMaxResults: Math.min(Math.max(toNumber(process.env.YOUTUBE_SEARCH_MAX_RESULTS, 4), 1), 10),
+  youtubeCommentMaxResults: Math.min(Math.max(toNumber(process.env.YOUTUBE_COMMENT_MAX_RESULTS, 20), 5), 50),
+  youtubeLookbackHours: Math.min(Math.max(toNumber(process.env.YOUTUBE_LOOKBACK_HOURS, 168), 24), 24 * 30),
+  googleTrendsGeo: process.env.GOOGLE_TRENDS_GEO || 'VN',
+  googleTrendsHl: process.env.GOOGLE_TRENDS_HL || 'vi',
+  googleTrendsMaxItems: Math.min(Math.max(toNumber(process.env.GOOGLE_TRENDS_MAX_ITEMS, 12), 3), 25),
   entityExtractionConcurrency: Math.min(Math.max(toNumber(process.env.ENTITY_EXTRACTION_CONCURRENCY, 4), 1), 12),
   feedRequestTimeoutMs: Math.min(Math.max(toNumber(process.env.FEED_REQUEST_TIMEOUT_MS, 12000), 3000), 60000),
 }

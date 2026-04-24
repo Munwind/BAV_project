@@ -36,3 +36,29 @@ test('extractEntitiesFromArticle resolves ticker-only seeded aliases for TPB, TR
   assert.ok(entities.some((item) => item.canonicalName === 'Traphaco' && item.ticker === 'TRA'))
   assert.ok(entities.some((item) => item.canonicalName === 'PVOIL' && item.ticker === 'OIL'))
 })
+
+test('extractEntitiesFromArticle uses youtube title and comment text with seed-only matching', () => {
+  const entities = extractEntitiesFromArticle({
+    sourceKey: 'youtube-vietstock-market-comments',
+    title: '[YouTube] TTKD va TPB trong nhom ngan hang dang chu y',
+    description_text: 'TPB dang duoc dinh gia re hon gia tri thuc te.',
+    rawItem: { platform: 'youtube' },
+  })
+
+  assert.ok(entities.some((item) => item.canonicalName === 'TPBank'))
+  assert.ok(!entities.some((item) => item.canonicalName === 'LIVE'))
+  assert.ok(!entities.some((item) => item.canonicalName === 'YouTube'))
+  assert.ok(!entities.some((item) => item.canonicalName === 'TTKD'))
+})
+
+test('extractEntitiesFromArticle does not match short ticker aliases inside normal words', () => {
+  const entities = extractEntitiesFromArticle({
+    sourceKey: 'youtube-cafef-stocks-comments',
+    title: '[YouTube] TPB dang co dong luc moi',
+    description_text: 'Trong luc cho keo thom thi cu sinh loi ma trien cho lanh.',
+    rawItem: { platform: 'youtube' },
+  })
+
+  assert.ok(entities.some((item) => item.canonicalName === 'TPBank'))
+  assert.ok(!entities.some((item) => item.canonicalName === 'Traphaco'))
+})

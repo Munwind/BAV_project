@@ -69,8 +69,24 @@ async function extractArticleEntities(article, { locale = 'vi-VN', model } = {})
   }
 }
 
+async function explainCompanyScore(payload, { model } = {}) {
+  const response = await fetch(`${env.aiServiceUrl}/explain-score`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      ...payload,
+      model: model || payload?.model,
+    }),
+  })
+
+  return readJsonResponse(response)
+}
+
 module.exports = {
   checkAiHealth,
+  explainCompanyScore,
   extractCompanyCandidates,
   extractArticleEntities,
 }

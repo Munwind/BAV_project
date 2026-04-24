@@ -1,16 +1,21 @@
-import { useEffect, useMemo, useState } from 'react'
+﻿import { useEffect, useMemo, useState } from 'react'
 import {
   Bot,
   BriefcaseBusiness,
   ChevronRight,
+  ExternalLink,
+  Globe,
   LayoutDashboard,
   LoaderCircle,
   PanelLeft,
+  RadioTower,
   RefreshCcw,
   Search,
   SendHorizonal,
   ShieldAlert,
   Sparkles,
+  TrendingUp,
+  WandSparkles,
   X,
 } from 'lucide-react'
 
@@ -18,8 +23,133 @@ const nav = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard, description: 'Executive summary' },
   { id: 'companies', label: 'Companies', icon: BriefcaseBusiness, description: 'Tracked entities' },
   { id: 'alerts', label: 'Alerts', icon: ShieldAlert, description: 'Risk monitoring' },
-  { id: 'compare', label: 'Compare', icon: Sparkles, description: 'Watchlist and benchmarking' },
 ]
+
+const STATIC_GOOGLE_TRENDS = [
+  { keyword: 'giá vàng hôm nay', traffic: '200K+', relatedQueries: ['SJC', '9999', 'tỷ giá USD'] },
+  { keyword: 'chứng khoán Việt Nam', traffic: '100K+', relatedQueries: ['VN-Index', 'cổ phiếu ngân hàng'] },
+  { keyword: 'lãi suất ngân hàng', traffic: '50K+', relatedQueries: ['gửi tiết kiệm', 'vay mua nhà'] },
+  { keyword: 'xăng dầu', traffic: '50K+', relatedQueries: ['giá xăng', 'Petrolimex'] },
+  { keyword: 'bất động sản', traffic: '20K+', relatedQueries: ['đất nền', 'chung cư'] },
+  { keyword: 'tỷ giá USD', traffic: '20K+', relatedQueries: ['VND', 'ngân hàng'] },
+  { keyword: 'du lịch hè', traffic: '20K+', relatedQueries: ['vé máy bay', 'khách sạn'] },
+  { keyword: 'AI doanh nghiệp', traffic: '10K+', relatedQueries: ['tự động hóa', 'chatbot'] },
+].map((item, index) => ({
+  ...item,
+  id: `static-trend-${index + 1}`,
+  rank: index + 1,
+  articles: [],
+}))
+
+const TREND_FORECAST_RULES = [
+  {
+    match: ['gia vang', 'sjc', '9999'],
+    theme: 'Gold demand',
+    forecast: 'Nhu cầu vàng có thể kéo attention sang nhóm bán lẻ vàng và ngân hàng.',
+    action: 'Theo dõi PNJ, SJC và nhóm ngân hàng',
+    impact: 'high',
+  },
+  {
+    match: ['chung khoan', 'vn-index', 'co phieu', 'ngan hang'],
+    theme: 'Market trading',
+    forecast: 'Dòng tìm kiếm chứng khoán tăng, xác suất thảo luận cổ phiếu/ngân hàng nóng lên.',
+    action: 'Ưu tiên coverage tài chính',
+    impact: 'high',
+  },
+  {
+    match: ['lai suat', 'gui tiet kiem', 'vay mua nha'],
+    theme: 'Rate sensitivity',
+    forecast: 'Lãi suất đang là pain-point, dễ tạo sentiment mới quanh ngân hàng và bất động sản.',
+    action: 'Theo dõi ngân hàng và bất động sản',
+    impact: 'medium',
+  },
+  {
+    match: ['xang dau', 'gia xang', 'petrolimex'],
+    theme: 'Fuel price',
+    forecast: 'Giá xăng có thể đẩy thảo luận về chi phí vận hành, logistics và bán lẻ.',
+    action: 'Theo dõi doanh nghiệp liên quan xăng dầu',
+    impact: 'medium',
+  },
+  {
+    match: ['bat dong san', 'dat nen', 'chung cu'],
+    theme: 'Real estate',
+    forecast: 'Bất động sản nóng lại có thể kéo volume sang chủ đầu tư, ngân hàng và vật liệu.',
+    action: 'Rà soát watchlist bất động sản',
+    impact: 'medium',
+  },
+  {
+    match: ['ai doanh nghiep', 'automation', 'chatbot'],
+    theme: 'Enterprise AI',
+    forecast: 'AI doanh nghiệp tăng attention, phù hợp để theo dõi vendor, ngân hàng số và automation.',
+    action: 'Bổ sung keyword liên quan AI',
+    impact: 'low',
+  },
+]
+
+function normalizeKeyword(value = '') {
+  return String(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+}
+
+function trendTrafficScore(traffic = '') {
+  const value = Number(String(traffic).replace(/[^\d]/g, '')) || 0
+  if (String(traffic).includes('K')) return Math.min(value, 250)
+  return value
+}
+
+function buildTrendForecast(trend) {
+  const haystack = normalizeKeyword([trend.keyword, ...(trend.relatedQueries || [])].join(' '))
+  const rule = TREND_FORECAST_RULES.find((item) => item.match.some((keyword) => haystack.includes(normalizeKeyword(keyword))))
+  const confidence = Math.min(92, 52 + Math.round(trendTrafficScore(trend.traffic) / 5) + Math.max(0, 9 - trend.rank))
+
+  return {
+    id: `google-${trend.id}`,
+    source: 'Google',
+    theme: rule?.theme || 'Search spike',
+    signal: trend.keyword,
+    forecast: rule?.forecast || 'Keyword đang tăng tìm kiếm, nên theo dõi xem có lan sang news hoặc YouTube comments không.',
+    action: rule?.action || 'Theo dõi entity liên quan',
+    confidence,
+    impact: rule?.impact || (confidence >= 78 ? 'high' : confidence >= 64 ? 'medium' : 'low'),
+    tone: rule?.impact === 'high' ? 'negative' : rule?.impact === 'medium' ? 'warning' : 'info',
+  }
+}
+
+function buildYoutubeForecast(companies = []) {
+  const youtubeLeaders = companies
+    .map((company) => {
+      const youtube = (company.sourceSplit || []).find((item) => item.channel === 'youtube')
+      if (!youtube) return null
+
+      return {
+        company,
+        youtube,
+        score: Number(youtube.mentions || 0) * 3 + Number(youtube.negativeShare || 0) + Number(company.forecastConfidence || 0) / 4,
+      }
+    })
+    .filter(Boolean)
+    .sort((left, right) => right.score - left.score)
+
+  const leader = youtubeLeaders[0]
+  if (!leader) return null
+
+  return {
+    id: `youtube-${leader.company.key}`,
+    source: 'YouTube',
+    theme: 'Comment velocity',
+    signal: leader.company.name,
+    forecast:
+      leader.youtube.negativeShare >= 35
+        ? 'YouTube comments đang nghiêng tiêu cực, dễ xuất hiện alert sớm trước news chính thống.'
+        : 'YouTube comments có volume đáng chú ý, nên theo dõi chuyển dịch sentiment trong 24h.',
+    action: 'Mở company detail và bấm Explain',
+    confidence: Math.min(92, 58 + Number(leader.youtube.mentions || 0) * 3 + Math.round(Number(leader.youtube.negativeShare || 0) / 3)),
+    impact: leader.youtube.negativeShare >= 35 ? 'high' : 'medium',
+    tone: leader.youtube.negativeShare >= 35 ? 'negative' : 'warning',
+  }
+}
 
 function Badge({ children, tone = 'default' }) {
   const tones = {
@@ -52,7 +182,27 @@ function Panel({ title, description, action, children }) {
   )
 }
 
-function StatCard({ label, value, note, tone }) {
+function CollapsiblePanel({ title, kicker, badge, open, onToggle, preview, children, className = '' }) {
+  return (
+    <section className={`rounded-3xl border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.88),rgba(240,249,255,0.76),rgba(255,247,237,0.62))] px-4 py-4 shadow-[0_18px_44px_-34px_rgba(15,23,42,0.22)] ${className}`}>
+      <button type="button" onClick={onToggle} className="flex w-full items-center justify-between gap-3 text-left">
+        <div className="min-w-0">
+          {kicker ? <p className="text-[11px] uppercase tracking-[0.16em] text-slate-400">{kicker}</p> : null}
+          <p className="mt-1 truncate text-sm font-semibold text-slate-950">{title}</p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {badge}
+          <span className={`flex size-8 items-center justify-center rounded-full border border-slate-200 bg-white/80 text-slate-500 transition ${open ? 'rotate-90' : ''}`}>
+            <ChevronRight className="size-4" />
+          </span>
+        </div>
+      </button>
+      {open ? <div className="mt-4">{children}</div> : preview ? <div className="mt-3">{preview}</div> : null}
+    </section>
+  )
+}
+
+function StatCard({ label, value, note, tone, onClick, addon }) {
   const surfaces = {
     default: 'bg-[linear-gradient(145deg,rgba(255,255,255,0.97),rgba(244,246,248,0.94),rgba(235,240,245,0.82))]',
     positive: 'bg-[linear-gradient(145deg,rgba(239,252,245,0.98),rgba(220,252,231,0.92),rgba(167,243,208,0.72))]',
@@ -61,15 +211,68 @@ function StatCard({ label, value, note, tone }) {
     info: 'bg-[linear-gradient(145deg,rgba(239,246,255,0.98),rgba(219,234,254,0.92),rgba(191,219,254,0.72))]',
   }
 
-  return (
-    <div className={`stat-surface float-card rounded-[28px] border p-5 shadow-[0_24px_58px_-38px_rgba(15,23,42,0.22)] ${surfaces[tone] || surfaces.default}`}>
-      <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
-      <p className="font-display mt-3 text-3xl font-semibold tracking-tight text-slate-950">{value}</p>
-      <div className="mt-4">
-        <Badge tone={tone}>{note}</Badge>
+  const className = `stat-surface float-card relative flex min-h-[188px] h-full flex-col justify-between overflow-hidden rounded-[28px] border p-5 shadow-[0_24px_58px_-38px_rgba(15,23,42,0.22)] ${surfaces[tone] || surfaces.default} ${
+    onClick ? 'text-left transition duration-200 hover:-translate-y-1 hover:border-slate-300/80' : ''
+  }`
+
+  const content = (
+    <>
+      <div className="pointer-events-none absolute inset-x-5 top-0 h-[3px] rounded-full bg-[linear-gradient(90deg,rgba(14,165,233,0.38),rgba(217,70,239,0.28),rgba(251,146,60,0.3))]" />
+      <div>
+        <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
+        <p className="font-display mt-4 text-[clamp(2.2rem,2.8vw,3rem)] font-semibold tracking-tight text-slate-950">{value}</p>
       </div>
-    </div>
+      <div className="mt-5 flex items-end justify-between gap-3">
+        <div className="min-w-0">
+          <Badge tone={tone}>{note}</Badge>
+        </div>
+        {addon ? <div className="shrink-0">{addon}</div> : null}
+      </div>
+    </>
   )
+
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={className}>
+        {content}
+      </button>
+    )
+  }
+
+  return <div className={className}>{content}</div>
+}
+
+function formatSourceDomain(value) {
+  if (!value) return 'N/A'
+
+  try {
+    return new URL(value).hostname.replace(/^www\./, '')
+  } catch {
+    return value
+  }
+}
+
+function normalizeSourceItem(source) {
+  const key = source.source_key || source.key || source.sourceKey || source.id
+  const category = source.category || 'general'
+  const siteUrl = source.site_url || source.siteUrl || ''
+  const rssUrl = source.rss_url || source.rssUrl || ''
+  const inferredPlatform =
+    source.platform
+    || (String(key || '').startsWith('youtube-') || category === 'video-comments' || siteUrl.includes('youtube.com') ? 'youtube' : 'rss')
+
+  return {
+    key,
+    name: source.source_name || source.name || 'Unknown source',
+    siteUrl,
+    rssUrl,
+    category,
+    language: source.language_code || source.language || 'vi',
+    lastCrawledAt: source.last_crawled_at || source.lastCrawledAt || null,
+    platform: inferredPlatform,
+    query: source.query || null,
+    configuredOnly: !source.last_crawled_at && !source.lastCrawledAt,
+  }
 }
 
 function ShellStat({ label, value, note }) {
@@ -155,8 +358,8 @@ function formatPercent(value) {
 function createWelcomeMessage(contextLabel) {
   const content =
     contextLabel === 'overview'
-      ? 'Chào bạn. Tôi có thể tóm tắt bức tranh thị trường tổng quan, highlight rủi ro mới và giải thích các tín hiệu nổi bật trong dashboard.'
-      : `Chào bạn. Tôi đang theo ngữ cảnh ${contextLabel}. Bạn có thể hỏi về sentiment, rủi ro, nguồn tin và các diễn biến mới nhất liên quan đến thực thể này.`
+      ? 'Chào bạn. Tôi có thể tóm tắt thị trường, highlight rủi ro mới và giải thích các tín hiệu nổi bật.'
+      : `Chào bạn. Tôi đang theo ngữ cảnh ${contextLabel}. Bạn có thể hỏi về sentiment, rủi ro, nguồn tin và diễn biến mới.`
 
   return {
     id: `assistant-welcome-${contextLabel}`,
@@ -168,11 +371,13 @@ function createWelcomeMessage(contextLabel) {
 
 export default function App() {
   const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/+$/, '')
-  const crawlerEnabled = import.meta.env.VITE_ENABLE_CRAWLER === 'true'
+  const crawlerEnabled = import.meta.env.VITE_ENABLE_CRAWLER !== 'false'
+  const adminApiKey = import.meta.env.VITE_ADMIN_API_KEY || ''
   const [activeView, setActiveView] = useState('overview')
   const [overview, setOverview] = useState(null)
   const [companies, setCompanies] = useState([])
   const [alerts, setAlerts] = useState([])
+  const [sources, setSources] = useState([])
   const [selectedCompanyKey, setSelectedCompanyKey] = useState('')
   const [companyRiskFilter, setCompanyRiskFilter] = useState('all')
   const [companySortMode, setCompanySortMode] = useState('forecast')
@@ -182,7 +387,10 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [crawlStatus, setCrawlStatus] = useState('idle')
+  const [sourceStatus, setSourceStatus] = useState('idle')
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const [companyPanelOpen, setCompanyPanelOpen] = useState(false)
+  const [sourcePanelOpen, setSourcePanelOpen] = useState(false)
   const [assistantOpen, setAssistantOpen] = useState(false)
   const [aiQuestion, setAiQuestion] = useState('')
   const [aiStatus, setAiStatus] = useState('idle')
@@ -191,6 +399,15 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchStatus, setSearchStatus] = useState('idle')
   const [searchResults, setSearchResults] = useState({ companies: [], alerts: [], articles: [] })
+  const [expandedSections, setExpandedSections] = useState({})
+  const [googleTrends] = useState({
+    items: STATIC_GOOGLE_TRENDS,
+    fetchedAt: new Date().toISOString(),
+    sourceUrl: 'https://trends.google.com/trends/trendingsearches/daily?geo=VN',
+  })
+  const trendStatus = 'success'
+  const [explainStatusByEntity, setExplainStatusByEntity] = useState({})
+  const [explainErrorByEntity, setExplainErrorByEntity] = useState({})
 
   const selectedCompany = useMemo(
     () => companies.find((item) => item.key === selectedCompanyKey) || companies[0] || null,
@@ -200,7 +417,7 @@ export default function App() {
     () => alerts.find((item) => item.id === selectedAlertId) || alerts[0] || null,
     [alerts, selectedAlertId],
   )
-  const compareCompanies = useMemo(() => {
+  const _compareCompanies = useMemo(() => {
     const explicit = companies.filter((company) => watchlistKeys.includes(company.key))
     if (explicit.length) return explicit.slice(0, 3)
     return companies.slice(0, 3)
@@ -251,13 +468,93 @@ export default function App() {
   }, [companyPage, filteredCompanies, totalCompanyPages])
   const chatContextKey = activeView === 'companies' && selectedCompany?.name ? `company:${selectedCompany.name}` : 'overview'
   const activeNavItem = nav.find((item) => item.id === activeView) || nav[0]
-  const highSeverityAlerts = alerts.filter((item) => item.severity === 'high').length
+  const sourceCategories = useMemo(
+    () => [...new Set(sources.map((item) => item.category).filter(Boolean))],
+    [sources],
+  )
+  const sourceRoster = useMemo(() => {
+    return [...sources].sort((left, right) => {
+      if (left.lastCrawledAt && right.lastCrawledAt) {
+        return new Date(right.lastCrawledAt).getTime() - new Date(left.lastCrawledAt).getTime()
+      }
+      if (left.lastCrawledAt) return -1
+      if (right.lastCrawledAt) return 1
+      return left.name.localeCompare(right.name, 'vi')
+    })
+  }, [sources])
+  const sourcePreview = useMemo(() => sourceRoster.slice(0, 5), [sourceRoster])
+  const companyRoster = useMemo(() => {
+    const priority = { high: 3, medium: 2, low: 1 }
+    return [...companies].sort((left, right) => {
+      const riskGap = (priority[right.forecastRisk7d] || 0) - (priority[left.forecastRisk7d] || 0)
+      if (riskGap !== 0) return riskGap
+      if ((right.forecastConfidence || 0) !== (left.forecastConfidence || 0)) {
+        return (right.forecastConfidence || 0) - (left.forecastConfidence || 0)
+      }
+      return (right.mentions || 0) - (left.mentions || 0)
+    })
+  }, [companies])
+  const recentlyCrawledSources = useMemo(
+    () => sourceRoster.filter((item) => item.lastCrawledAt).length,
+    [sourceRoster],
+  )
+  const latestCrawledSource = sourceRoster.find((item) => item.lastCrawledAt) || null
+  const highRiskCompaniesCount = useMemo(
+    () => companyRoster.filter((item) => item.forecastRisk7d === 'high').length,
+    [companyRoster],
+  )
+  const earlyForecasts = useMemo(() => {
+    const googleSignals = (googleTrends.items || [])
+      .slice(0, 5)
+      .map(buildTrendForecast)
+      .sort((left, right) => right.confidence - left.confidence)
+    const youtubeSignal = buildYoutubeForecast(companies)
+
+    return [youtubeSignal, ...googleSignals].filter(Boolean).slice(0, 6)
+  }, [companies, googleTrends.items])
+
+  function isExpanded(sectionId) {
+    return Boolean(expandedSections[sectionId])
+  }
+
+  function toggleExpanded(sectionId) {
+    setExpandedSections((current) => ({
+      ...current,
+      [sectionId]: !current[sectionId],
+    }))
+  }
 
   async function getJson(path) {
     const response = await fetch(`${apiBaseUrl}${path}`)
     const data = await response.json()
     if (!response.ok) throw new Error(data.error || `Request failed: ${path}`)
     return data
+  }
+
+  async function loadSourceRoster() {
+    setSourceStatus('loading')
+
+    try {
+      const sourceData = await getJson('/sources')
+      let items = sourceData.items || []
+
+      if (!items.length) {
+        const fallbackData = await getJson('/crawler/sources')
+        items = fallbackData.items || []
+      }
+
+      setSources(items.map(normalizeSourceItem))
+      setSourceStatus('success')
+    } catch {
+      try {
+        const fallbackData = await getJson('/crawler/sources')
+        setSources((fallbackData.items || []).map(normalizeSourceItem))
+        setSourceStatus('success')
+      } catch {
+        setSources([])
+        setSourceStatus('error')
+      }
+    }
   }
 
   async function loadData() {
@@ -268,6 +565,7 @@ export default function App() {
         getJson('/overview'),
         getJson('/companies'),
         getJson('/alerts'),
+        loadSourceRoster(),
       ])
       setOverview(overviewData)
       setCompanies(companiesData.items || [])
@@ -285,6 +583,67 @@ export default function App() {
       setError(loadError.message || 'Không thể tải dữ liệu')
     } finally {
       setLoading(false)
+    }
+  }
+
+  function mergeExplanationIntoCompany(company, result) {
+    if (!company || Number(company.entityId) !== Number(result.entityId)) return company
+
+    return {
+      ...company,
+      explain: result.explain,
+      explainability: result.explainability || company.explainability,
+    }
+  }
+
+  function applyCompanyExplanation(result) {
+    setCompanies((current) => current.map((company) => mergeExplanationIntoCompany(company, result)))
+    setAlerts((current) => current.map((alert) => {
+      if (Number(alert.entityId || 0) !== Number(result.entityId)) return alert
+      return {
+        ...alert,
+        explain: result.explain,
+        explainability: result.explainability || alert.explainability,
+      }
+    }))
+    setOverview((current) => {
+      if (!current) return current
+      return {
+        ...current,
+        topCompany: mergeExplanationIntoCompany(current.topCompany, result),
+        latestAlerts: (current.latestAlerts || []).map((alert) => {
+          if (Number(alert.entityId || 0) !== Number(result.entityId)) return alert
+          return {
+            ...alert,
+            explain: result.explain,
+            explainability: result.explainability || alert.explainability,
+          }
+        }),
+      }
+    })
+  }
+
+  async function handleExplainScore(item) {
+    const entityId = item?.entityId
+    if (!entityId) return
+
+    try {
+      setExplainStatusByEntity((current) => ({ ...current, [entityId]: 'loading' }))
+      setExplainErrorByEntity((current) => ({ ...current, [entityId]: '' }))
+      const response = await fetch(`${apiBaseUrl}/companies/${entityId}/explain`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Score explanation failed')
+      applyCompanyExplanation(data)
+      setExplainStatusByEntity((current) => ({ ...current, [entityId]: 'success' }))
+    } catch (explainError) {
+      setExplainStatusByEntity((current) => ({ ...current, [entityId]: 'error' }))
+      setExplainErrorByEntity((current) => ({
+        ...current,
+        [entityId]: explainError.message || 'Không thể tạo giải thích score',
+      }))
     }
   }
 
@@ -308,6 +667,8 @@ export default function App() {
 
   useEffect(() => {
     setMobileNavOpen(false)
+    setCompanyPanelOpen(false)
+    setSourcePanelOpen(false)
   }, [activeView])
 
   useEffect(() => {
@@ -388,9 +749,13 @@ export default function App() {
   async function handleRunCrawler() {
     try {
       setCrawlStatus('loading')
+      setError('')
       const response = await fetch(`${apiBaseUrl}/crawler/run`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(adminApiKey ? { 'x-admin-key': adminApiKey } : {}),
+        },
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Crawler run failed')
@@ -400,6 +765,253 @@ export default function App() {
       setCrawlStatus('error')
       setError(crawlError.message || 'Crawler run failed')
     }
+  }
+
+  function renderSourceSheet() {
+    return (
+      <div className="fixed inset-0 z-50 bg-[linear-gradient(180deg,rgba(15,23,42,0.08),rgba(15,23,42,0.18))] backdrop-blur-[4px]">
+        <div className="absolute inset-y-4 right-4 flex w-[min(760px,calc(100vw-32px))] flex-col overflow-hidden rounded-[32px] border border-white/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(246,251,255,0.96),rgba(252,244,251,0.94))] shadow-[0_44px_120px_-40px_rgba(15,23,42,0.48)]">
+          <div className="border-b border-white/80 bg-[linear-gradient(90deg,rgba(240,249,255,0.96),rgba(236,254,255,0.92),rgba(250,245,255,0.9),rgba(255,237,213,0.88))] px-5 py-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Source roster</p>
+                <p className="font-display mt-2 text-3xl font-semibold tracking-tight text-slate-950">Tracked sources</p>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                  Feed roster cho crawler: category, domain, endpoint và lần crawl gần nhất.
+                </p>
+              </div>
+              <button type="button" onClick={() => setSourcePanelOpen(false)} className="rounded-2xl border border-white bg-white/80 p-2 text-slate-500 shadow-sm">
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-[24px] border border-white/80 bg-white/80 px-4 py-4 shadow-[0_18px_34px_-26px_rgba(15,23,42,0.18)]">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Total feeds</p>
+                <p className="font-display mt-3 text-3xl font-semibold tracking-tight text-slate-950">{sourceRoster.length || overview?.metrics?.trackedSources || 0}</p>
+                <p className="mt-2 text-xs leading-5 text-slate-500">Configured sources currently visible to the dashboard.</p>
+              </div>
+              <div className="rounded-[24px] border border-white/80 bg-white/80 px-4 py-4 shadow-[0_18px_34px_-26px_rgba(15,23,42,0.18)]">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Categories</p>
+                <p className="font-display mt-3 text-3xl font-semibold tracking-tight text-slate-950">{sourceCategories.length}</p>
+                <p className="mt-2 text-xs leading-5 text-slate-500">Coverage spans business, finance, enterprise and market desks.</p>
+              </div>
+              <div className="rounded-[24px] border border-white/80 bg-white/80 px-4 py-4 shadow-[0_18px_34px_-26px_rgba(15,23,42,0.18)]">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Last active feed</p>
+                <p className="mt-3 text-sm font-semibold text-slate-950">{latestCrawledSource?.name || 'Configured only'}</p>
+                <p className="mt-2 text-xs leading-5 text-slate-500">
+                  {latestCrawledSource?.lastCrawledAt ? `Crawled ${formatDate(latestCrawledSource.lastCrawledAt)}` : 'No crawl timestamp yet.'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-3 border-b border-white/70 px-5 py-3">
+            <div className="flex flex-wrap gap-2">
+              <Badge tone="info">{recentlyCrawledSources} crawled</Badge>
+              <Badge tone="default">{sourceCategories.length} categories</Badge>
+              <Badge tone="positive">{sourceRoster.filter((item) => item.platform !== 'youtube').length} RSS links</Badge>
+              <Badge tone="warning">{sourceRoster.filter((item) => item.platform === 'youtube').length} YouTube sources</Badge>
+            </div>
+            <button
+              type="button"
+              onClick={loadSourceRoster}
+              className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:-translate-y-0.5"
+            >
+              <RefreshCcw className="size-4" />
+              Reload roster
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-5 py-5">
+            {sourceStatus === 'loading' ? (
+              <div className="flex h-full min-h-52 items-center justify-center rounded-[28px] border border-dashed border-slate-200/80 bg-white/70">
+                <div className="flex items-center gap-3 text-sm text-slate-500">
+                  <LoaderCircle className="size-4 animate-spin" />
+                  Loading source roster...
+                </div>
+              </div>
+            ) : sourceRoster.length ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {sourceRoster.map((source) => (
+                  <div key={source.key} className="rounded-[28px] border border-white/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.98),rgba(240,249,255,0.92),rgba(255,247,237,0.84))] p-4 shadow-[0_18px_40px_-30px_rgba(15,23,42,0.18)]">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-base font-semibold text-slate-950">{source.name}</p>
+                        <p className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-400">{source.category.replace(/-/g, ' ')}</p>
+                      </div>
+                      <Badge tone={source.lastCrawledAt ? 'positive' : 'default'}>
+                        {source.lastCrawledAt ? 'Live' : 'Configured'}
+                      </Badge>
+                    </div>
+
+                    <div className="mt-4 space-y-3">
+                      <div className="rounded-2xl border border-white/80 bg-white/80 px-3 py-3">
+                        <div className="flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-slate-400">
+                          <Globe className="size-3.5" />
+                          Site
+                        </div>
+                        <a href={source.siteUrl || '#'} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-2 text-sm font-medium text-slate-700 hover:text-slate-950">
+                          {formatSourceDomain(source.siteUrl)}
+                          <ExternalLink className="size-3.5" />
+                        </a>
+                      </div>
+
+                      <div className="rounded-2xl border border-white/80 bg-white/80 px-3 py-3">
+                        <div className="flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-slate-400">
+                          <RadioTower className="size-3.5" />
+                          {source.platform === 'youtube' ? 'Discovery endpoint' : 'Feed endpoint'}
+                        </div>
+                        <a href={source.rssUrl || '#'} target="_blank" rel="noreferrer" className="mt-2 block truncate text-sm font-medium text-slate-700 hover:text-slate-950">
+                          {source.rssUrl || 'No RSS URL'}
+                        </a>
+                      </div>
+
+                      {source.platform === 'youtube' && source.query ? (
+                        <div className="rounded-2xl border border-white/80 bg-white/80 px-3 py-3">
+                          <p className="text-xs uppercase tracking-[0.16em] text-slate-400">YouTube query</p>
+                          <p className="mt-2 text-sm font-medium text-slate-700">{source.query}</p>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                      <Badge tone="default">{source.language?.toUpperCase() || 'VI'}</Badge>
+                      <Badge tone={source.platform === 'youtube' ? 'warning' : 'info'}>{source.platform === 'youtube' ? 'YouTube' : 'RSS'}</Badge>
+                      {source.lastCrawledAt ? <Badge tone="info">Seen {formatDate(source.lastCrawledAt)}</Badge> : null}
+                      {source.configuredOnly ? <Badge tone="warning">Awaiting next crawl</Badge> : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex h-full min-h-52 items-center justify-center rounded-[28px] border border-dashed border-slate-200/80 bg-white/70 px-6 text-center">
+                <div>
+                  <p className="font-display text-2xl font-semibold text-slate-950">No sources loaded</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-500">Không lấy được source roster từ backend ở lần gọi này.</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  function renderCompanySheet() {
+    return (
+      <div className="fixed inset-0 z-50 bg-[linear-gradient(180deg,rgba(15,23,42,0.14),rgba(15,23,42,0.24))] backdrop-blur-[5px]">
+        <div className="absolute inset-y-4 right-4 flex w-[min(820px,calc(100vw-32px))] flex-col overflow-hidden rounded-[34px] border border-white/20 bg-[linear-gradient(180deg,rgba(17,24,39,0.88),rgba(17,24,39,0.82),rgba(6,78,59,0.64),rgba(30,64,175,0.52))] text-white shadow-[0_46px_120px_-40px_rgba(15,23,42,0.58)]">
+          <div className="border-b border-white/12 bg-[linear-gradient(90deg,rgba(30,41,59,0.92),rgba(12,74,110,0.76),rgba(190,24,93,0.44),rgba(217,119,6,0.34))] px-5 py-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.22em] text-white/45">Entity roster</p>
+                <p className="font-display mt-2 text-3xl font-semibold tracking-tight text-white">Tracked companies</p>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-white/72">
+                  Universe công ty đang được theo dõi. Chạm vào item để mở detail trong tab `Companies`.
+                </p>
+              </div>
+              <button type="button" onClick={() => setCompanyPanelOpen(false)} className="rounded-2xl border border-white/20 bg-white/10 p-2 text-white/70 shadow-sm transition hover:bg-white/15">
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-[24px] border border-white/12 bg-white/10 px-4 py-4 backdrop-blur">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Total tracked</p>
+                <p className="font-display mt-3 text-3xl font-semibold tracking-tight text-white">{companyRoster.length || overview?.metrics?.trackedCompanies || 0}</p>
+                <p className="mt-2 text-xs leading-5 text-white/62">Current company universe visible to the analyst.</p>
+              </div>
+              <div className="rounded-[24px] border border-white/12 bg-white/10 px-4 py-4 backdrop-blur">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">High forecast</p>
+                <p className="font-display mt-3 text-3xl font-semibold tracking-tight text-white">{highRiskCompaniesCount}</p>
+                <p className="mt-2 text-xs leading-5 text-white/62">Entities needing tighter watch in the next 7 days.</p>
+              </div>
+              <div className="rounded-[24px] border border-white/12 bg-white/10 px-4 py-4 backdrop-blur">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Lead company</p>
+                <p className="mt-3 text-sm font-semibold text-white">{companyRoster[0]?.name || 'No company loaded'}</p>
+                <p className="mt-2 text-xs leading-5 text-white/62">
+                  {companyRoster[0] ? `${companyRoster[0].mentions || 0} mentions, ${formatForecastLabel(companyRoster[0].forecastRisk7d)} forecast` : 'Load analytics to see the roster.'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-3 border-b border-white/12 px-5 py-3">
+            <div className="flex flex-wrap gap-2">
+              <Badge tone="negative">{highRiskCompaniesCount} high 7d</Badge>
+              <Badge tone="info">{watchlistKeys.length} watchlist</Badge>
+              <Badge tone="default">{companyRoster.reduce((sum, item) => sum + (item.mentions || 0), 0)} mentions / 7d</Badge>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setCompanyPanelOpen(false)
+                setActiveView('companies')
+              }}
+              className="inline-flex items-center gap-2 rounded-2xl border border-white/16 bg-white/10 px-3 py-2 text-sm font-medium text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-white/14"
+            >
+              <BriefcaseBusiness className="size-4" />
+              Open Companies
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-5 py-5">
+            <div className="grid gap-3 sm:grid-cols-2">
+              {companyRoster.map((company, index) => (
+                <button
+                  key={company.key}
+                  type="button"
+                  onClick={() => {
+                    setSelectedCompanyKey(company.key)
+                    setCompanyPanelOpen(false)
+                    setActiveView('companies')
+                  }}
+                  className="group rounded-[28px] border border-white/14 bg-[linear-gradient(145deg,rgba(255,255,255,0.1),rgba(255,255,255,0.06),rgba(255,255,255,0.04))] p-4 text-left shadow-[0_18px_40px_-30px_rgba(15,23,42,0.4)] transition hover:-translate-y-1 hover:border-white/24 hover:bg-[linear-gradient(145deg,rgba(255,255,255,0.16),rgba(255,255,255,0.08),rgba(255,255,255,0.06))]"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">#{String(index + 1).padStart(2, '0')}</p>
+                      <p className="mt-2 text-lg font-semibold text-white">{company.name}</p>
+                      <p className="mt-1 text-sm text-white/58">{company.industry || 'Tracked entity'}</p>
+                    </div>
+                    <Badge tone={toneForSeverity(company.forecastRisk7d)}>7d {formatForecastLabel(company.forecastRisk7d)}</Badge>
+                  </div>
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-2xl border border-white/10 bg-black/10 px-3 py-3">
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-white/40">Score</p>
+                      <p className="mt-2 text-xl font-semibold text-white">{company.score}</p>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-black/10 px-3 py-3">
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-white/40">Mentions</p>
+                      <p className="mt-2 text-xl font-semibold text-white">{company.mentions}</p>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-black/10 px-3 py-3">
+                      <p className="text-[11px] uppercase tracking-[0.14em] text-white/40">Confidence</p>
+                      <p className="mt-2 text-xl font-semibold text-white">{company.forecastConfidence || 'N/A'}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <Badge tone="info">{company.sourceCount || 0} sources</Badge>
+                    <Badge tone="default">{company.lifetimeMentions || 0} lifetime</Badge>
+                    {company.topTopics?.[0] ? <Badge tone="positive">{company.topTopics[0]}</Badge> : null}
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between gap-3">
+                    <p className="line-clamp-2 text-sm leading-6 text-white/68">
+                      {company.forecastSummary || company.summary || 'Open company detail to inspect current evidence and article-level signals.'}
+                    </p>
+                    <ChevronRight className="size-4 shrink-0 text-white/46 transition group-hover:translate-x-0.5 group-hover:text-white/72" />
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   async function handleAskAi() {
@@ -626,6 +1238,261 @@ export default function App() {
     )
   }
 
+  function renderScoreExplainPanel(item, options = {}) {
+    const scoreExplain = item?.explain || item?.explainability?.scoreExplain
+    const scoreFactors = (item?.explainability?.scoreFactors || []).slice(0, options.limit || 3)
+    const entityId = item?.entityId
+    const explainStatus = entityId ? explainStatusByEntity[entityId] : 'idle'
+    const explainError = entityId ? explainErrorByEntity[entityId] : ''
+    const isLoadingExplain = explainStatus === 'loading'
+
+    if (!scoreExplain && !scoreFactors.length && !entityId) return null
+
+    return (
+      <div className={`rounded-3xl border border-cyan-100 bg-[linear-gradient(135deg,rgba(236,254,255,0.92),rgba(255,255,255,0.96),rgba(240,249,255,0.88))] px-4 py-4 ${options.className || ''}`}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs uppercase tracking-[0.16em] text-slate-500">{options.title || 'Score'}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            {item?.score != null ? <Badge tone={toneForScore(item.score)}>Score {item.score}</Badge> : null}
+            {entityId ? (
+              <button
+                type="button"
+                onClick={() => handleExplainScore(item)}
+                disabled={isLoadingExplain}
+                className="inline-flex items-center gap-2 rounded-full border border-cyan-200 bg-white/90 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-cyan-800 shadow-sm transition hover:-translate-y-0.5 disabled:opacity-60"
+              >
+                {isLoadingExplain ? <LoaderCircle className="size-3.5 animate-spin" /> : <WandSparkles className="size-3.5" />}
+                {scoreExplain ? 'Refresh' : 'Explain'}
+              </button>
+            ) : null}
+          </div>
+        </div>
+        {scoreExplain ? (
+          <p className="mt-3 text-sm leading-7 text-slate-700">{scoreExplain}</p>
+        ) : (
+          <p className="hidden">
+            Lý do score chưa được tạo tự động. Bấm Explain để LLM sinh giải thích dựa trên evidence hiện tại.
+          </p>
+        )}
+        {scoreFactors.length ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {scoreFactors.map((factor) => (
+              <Badge key={`${item?.key || item?.id || item?.companyKey || 'score'}-${factor}`} tone="default">{factor}</Badge>
+            ))}
+          </div>
+        ) : null}
+        {explainError ? <p className="mt-3 rounded-2xl border border-rose-100 bg-rose-50 px-3 py-2 text-sm text-rose-700">{explainError}</p> : null}
+      </div>
+    )
+  }
+
+  function renderWhatChangedPanel(data, options = {}) {
+    const block = data?.whatChanged || data?.intelligence?.whatChanged
+    if (!block) return null
+
+    return (
+      <div className={`rounded-3xl border border-sky-100 bg-[linear-gradient(135deg,rgba(240,249,255,0.95),rgba(255,255,255,0.96),rgba(224,242,254,0.88))] px-4 py-4 ${options.className || ''}`}>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs uppercase tracking-[0.16em] text-slate-500">{options.title || 'What changed'}</p>
+          {options.badge ? <Badge tone={options.badgeTone || 'info'}>{options.badge}</Badge> : null}
+        </div>
+        <p className="mt-3 text-sm font-medium leading-6 text-slate-900">{block.headline}</p>
+        {options.showBullets && (block.bullets || []).length ? (
+          <div className="mt-4 space-y-2">
+            {block.bullets.slice(0, options.limit || 3).map((bullet) => (
+              <div key={`${options.title || 'what-changed'}-${bullet}`} className="rounded-2xl border border-white/80 bg-white/75 px-3 py-3 text-sm leading-6 text-slate-600">
+                {bullet}
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    )
+  }
+
+  function renderSourceSplitPanel(data, options = {}) {
+    const items = data?.sourceSplit || data?.explainability?.sourceSplit || data?.intelligence?.sourceSplit || []
+    if (!items.length) return null
+
+    return (
+      <div className={`rounded-3xl border border-amber-100 bg-[linear-gradient(135deg,rgba(255,251,235,0.95),rgba(255,255,255,0.96),rgba(255,237,213,0.88))] px-4 py-4 ${options.className || ''}`}>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs uppercase tracking-[0.16em] text-slate-500">{options.title || 'Source mix'}</p>
+          <Badge tone="warning">{items.length} channels</Badge>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          {items.slice(0, options.limit || 4).map((item) => (
+            <div key={`${item.channel}-${item.label}`} className="rounded-2xl border border-white/80 bg-white/75 px-4 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-slate-900">{item.label}</p>
+                  <p className="mt-1 text-xs text-slate-500">{item.sourceCount || 0} sources</p>
+                </div>
+                <Badge tone={item.negativeShare >= 40 ? 'warning' : 'info'}>{item.share}% share</Badge>
+              </div>
+              <div className="mt-4 flex items-end justify-between gap-4">
+                <div>
+                  <p className="font-display text-2xl font-semibold text-slate-950">{item.mentions || 0}</p>
+                  <p className="text-xs text-slate-500">mentions</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-medium text-slate-900">{item.negativeShare || 0}%</p>
+                  <p className="text-xs text-slate-500">negative within channel</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  function renderGoogleTrendsPanel(options = {}) {
+    const items = googleTrends.items || []
+
+    return (
+      <div className={`rounded-3xl border border-emerald-100 bg-[linear-gradient(135deg,rgba(236,253,245,0.94),rgba(255,255,255,0.96),rgba(240,249,255,0.88))] px-4 py-4 ${options.className || ''}`}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-slate-500">
+              <TrendingUp className="size-3.5" />
+              Hot Trends
+            </p>
+            <p className="hidden">Static Google Trends seed.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone="positive">{items.length || 0} keywords</Badge>
+            <Badge tone="default">Hardcoded</Badge>
+          </div>
+        </div>
+
+        {trendStatus === 'loading' && !items.length ? (
+          <div className="mt-4 flex min-h-40 items-center justify-center rounded-2xl border border-dashed border-emerald-100 bg-white/60 text-sm text-slate-500">
+            <LoaderCircle className="mr-2 size-4 animate-spin" />
+            Loading Google Trends...
+          </div>
+        ) : null}
+
+        {trendStatus === 'error' && !items.length ? (
+          <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
+            Chưa lấy được Google Trends ở lần gọi này. Dashboard vẫn dùng news và YouTube comments như bình thường.
+          </div>
+        ) : null}
+
+        {items.length ? (
+          <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+            {items.slice(0, options.limit || 8).map((trend) => (
+              <a
+                key={trend.id}
+                href={`https://trends.google.com/trends/explore?geo=VN&q=${encodeURIComponent(trend.keyword)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="group rounded-2xl border border-white/80 bg-white/75 px-3 py-3 shadow-[0_16px_34px_-28px_rgba(15,23,42,0.18)] transition hover:-translate-y-0.5 hover:border-emerald-200"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-950">
+                      #{trend.rank} {trend.keyword}
+                    </p>
+                    {trend.relatedQueries?.length ? (
+                      <p className="mt-2 line-clamp-1 text-xs text-slate-500">{trend.relatedQueries.join(' · ')}</p>
+                    ) : null}
+                  </div>
+                  <Badge tone="positive">{trend.traffic || 'Trend'}</Badge>
+                </div>
+                {trend.articles?.[0] ? (
+                  <p className="mt-3 line-clamp-2 text-xs leading-5 text-slate-600">
+                    {trend.articles[0].source ? `${trend.articles[0].source}: ` : ''}{trend.articles[0].title}
+                  </p>
+                ) : null}
+              </a>
+            ))}
+          </div>
+        ) : null}
+
+        {trendStatus === 'footer' && (googleTrends.fetchedAt || googleTrends.sourceUrl) ? (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
+            <span>{googleTrends.fetchedAt ? `Fetched ${formatDate(googleTrends.fetchedAt)}` : 'Live source'}</span>
+            {googleTrends.sourceUrl ? (
+              <a href={googleTrends.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-emerald-800">
+                Open Trends
+                <ExternalLink className="size-3.5" />
+              </a>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    )
+  }
+
+  function renderEarlyForecastPanel(options = {}) {
+    const items = earlyForecasts.slice(0, options.limit || 6)
+    if (!items.length) return null
+
+    return (
+      <div className={`rounded-3xl border border-sky-100 bg-[linear-gradient(135deg,rgba(239,246,255,0.96),rgba(255,255,255,0.96),rgba(236,253,245,0.86))] px-4 py-4 ${options.className || ''}`}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-slate-500">
+            <RadioTower className="size-3.5" />
+            Early signals
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Badge tone="info">Google + YouTube</Badge>
+            <Badge tone="warning">{items.length} forecasts</Badge>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3 xl:grid-cols-3">
+          {items.map((item) => (
+            <div
+              key={item.id}
+              className="rounded-2xl border border-white/80 bg-white/75 px-4 py-4 shadow-[0_16px_34px_-28px_rgba(15,23,42,0.18)]"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-slate-400">{item.source}</p>
+                  <p className="mt-2 truncate text-sm font-semibold text-slate-950">{item.signal}</p>
+                </div>
+                <Badge tone={item.tone}>{item.impact}</Badge>
+              </div>
+              <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-700">{item.forecast}</p>
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+                <Badge tone="default">{item.theme}</Badge>
+                <Badge tone="info">{item.confidence}% conf</Badge>
+              </div>
+              <p className="mt-3 text-xs font-medium uppercase tracking-[0.12em] text-slate-500">{item.action}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  function renderNarrativePanel(data, options = {}) {
+    const narrative = data?.narrative || data?.intelligence?.topNarrative
+    if (!narrative) return null
+
+    return (
+      <div className={`rounded-3xl border border-fuchsia-100 bg-[linear-gradient(135deg,rgba(250,245,255,0.96),rgba(255,255,255,0.96),rgba(255,241,242,0.84))] px-4 py-4 ${options.className || ''}`}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs uppercase tracking-[0.16em] text-slate-500">{options.title || 'Dominant narrative'}</p>
+          <div className="flex flex-wrap gap-2">
+            {narrative.companyName ? <Badge tone="info">{narrative.companyName}</Badge> : null}
+            {narrative.pressure ? <Badge tone={narrative.pressure.includes('downside') ? 'negative' : 'warning'}>{narrative.pressure}</Badge> : null}
+          </div>
+        </div>
+        <p className="mt-3 text-sm font-medium leading-6 text-slate-900">{narrative.title}</p>
+        <p className="mt-2 text-sm leading-7 text-slate-600">{narrative.summary}</p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {narrative.leadTopic ? <Badge tone="default">{narrative.leadTopic}</Badge> : null}
+          {narrative.leadSource ? <Badge tone="default">{narrative.leadSource}</Badge> : null}
+          {narrative.leadChannel ? <Badge tone="default">{narrative.leadChannel}</Badge> : null}
+          {narrative.negativeSignals != null ? <Badge tone="warning">{narrative.negativeSignals} negative signals</Badge> : null}
+        </div>
+      </div>
+    )
+  }
+
   function _renderEvidencePanelLegacy(item) {
     if (!item?.explainability) return null
 
@@ -726,6 +1593,38 @@ export default function App() {
                 </Badge>
               </div>
             </div>
+
+            {sourcePreview.length ? (
+              <div className="mt-4 rounded-[26px] border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.88),rgba(240,249,255,0.84),rgba(255,247,237,0.76))] px-4 py-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Feed sketch</p>
+                    <p className="mt-2 text-sm font-medium text-slate-800">Các source đang được crawler theo dõi cho ingest hiện tại.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSourcePanelOpen(true)}
+                    className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white/90 px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-600"
+                  >
+                    Full roster
+                    <ChevronRight className="size-3.5" />
+                  </button>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {sourcePreview.map((source) => (
+                    <button
+                      key={`source-preview-${source.key}`}
+                      type="button"
+                      onClick={() => setSourcePanelOpen(true)}
+                      className="inline-flex items-center gap-2 rounded-full border border-white/80 bg-white/80 px-3 py-2 text-sm text-slate-700 shadow-[0_14px_26px_-22px_rgba(15,23,42,0.2)] transition hover:-translate-y-0.5"
+                    >
+                      <span className="font-medium">{source.name}</span>
+                      <span className="text-xs uppercase tracking-[0.14em] text-slate-400">{source.category.replace(/-/g, ' ')}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
@@ -750,6 +1649,13 @@ export default function App() {
             {evidence.strongestSource ? <Badge tone="default">Strongest source {evidence.strongestSource}</Badge> : null}
           </div>
         </div>
+
+        {evidence.scoreExplain ? (
+          <div className="mt-4 rounded-2xl border border-white/80 bg-white/70 px-4 py-3">
+            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Score explanation</p>
+            <p className="mt-3 text-sm leading-7 text-slate-700">{evidence.scoreExplain}</p>
+          </div>
+        ) : null}
 
         <div className="mt-4 grid gap-3 xl:grid-cols-[1.02fr_0.98fr]">
           <div className="space-y-3">
@@ -858,82 +1764,72 @@ export default function App() {
     if (!overview) return null
 
     const metrics = [
-      ['Average Sentiment', `${overview.metrics.averageSentiment}/100`, 'Across tracked companies', 'info'],
-      ['Tracked Companies', overview.metrics.trackedCompanies, 'Entity-driven company universe', 'default'],
-      ['Active Alerts', overview.metrics.activeAlerts, 'Need analyst review', 'warning'],
-      ['Tracked Sources', overview.metrics.trackedSources, 'Multi-source coverage', 'info'],
-      ['Knowledge Base', overview.metrics.knowledgeBase, 'Historic mentions retained', 'positive'],
+      { label: 'Average Sentiment', value: `${overview.metrics.averageSentiment}/100`, note: 'Across tracked companies', tone: 'info' },
+      { label: 'Active Alerts', value: overview.metrics.activeAlerts, note: 'Need analyst review', tone: 'warning' },
+      {
+        label: 'Tracked Companies',
+        value: overview.metrics.trackedCompanies,
+        note: companyRoster.length ? 'Open company roster' : 'Tracked entity universe',
+        tone: 'warning',
+        onClick: () => setCompanyPanelOpen(true),
+        addon: (
+          <span className="inline-flex items-center gap-1 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500">
+            Inspect
+            <ChevronRight className="size-3.5" />
+          </span>
+        ),
+      },
+      {
+        label: 'Tracked Sources',
+        value: overview.metrics.trackedSources,
+        note: sourceRoster.length ? 'Open feed roster' : 'Source roster preview',
+        tone: 'info',
+        onClick: () => setSourcePanelOpen(true),
+        addon: (
+          <span className="inline-flex items-center gap-1 text-[11px] font-medium uppercase tracking-[0.12em] text-slate-500">
+            Inspect
+            <ChevronRight className="size-3.5" />
+          </span>
+        ),
+      },
     ]
 
     return (
       <div className="space-y-5">
         <div className="space-y-4 border-b border-slate-200/80 pb-6">
-          <div className="flex items-end">
-            <h1 className="font-display text-[clamp(2.6rem,5vw,4.5rem)] leading-none font-semibold tracking-[-0.03em] text-slate-950">
-              Overview
-            </h1>
-          </div>
-
-          <div className="rounded-[32px] border border-white/80 bg-[linear-gradient(155deg,rgba(255,255,255,0.92),rgba(248,250,252,0.82),rgba(238,242,255,0.72))] p-5 shadow-[0_28px_74px_-42px_rgba(15,23,42,0.28)]">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Control room</p>
-                <p className="font-display mt-3 text-2xl font-semibold tracking-tight text-slate-950">
-                  {topForecastCompany?.name || 'No spotlight yet'}
-                </p>
-                <p className="mt-2 text-sm leading-7 text-slate-600">
-                  {topForecastCompany?.forecastSummary || 'Run a fresh crawl to populate the latest market signal and forecast context.'}
-                </p>
-              </div>
-              {topForecastCompany ? (
-                <Badge tone={toneForSeverity(topForecastCompany.forecastRisk7d)}>
-                  7d {formatForecastLabel(topForecastCompany.forecastRisk7d)}
-                </Badge>
-              ) : null}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h1 className="font-display text-[clamp(2.6rem,5vw,4.5rem)] leading-none font-semibold tracking-[-0.03em] text-slate-950">
+                Overview
+              </h1>
+              <p className="mt-3 text-sm leading-7 text-slate-500">
+                {topForecastCompany?.lastSeenAt ? `Latest snapshot ${formatDate(topForecastCompany.lastSeenAt)}` : 'Waiting for ingest snapshot'}
+              </p>
             </div>
-
-            <div className="mt-5 grid gap-3 sm:grid-cols-3">
-              <ShellStat label="Open alerts" value={alerts.length} note="Current analyst queue across all entities." />
-              <ShellStat label="High severity" value={highSeverityAlerts} note="Immediate review candidates today." />
-              <ShellStat
-                label="Crawler status"
-                value={crawlStatus === 'loading' ? 'Running' : crawlStatus === 'success' ? 'Fresh' : 'Standby'}
-                note={
-                  crawlStatus === 'success'
-                    ? 'Latest crawl completed successfully.'
-                    : crawlerEnabled
-                      ? 'Use refresh for read sync, crawl for ingest.'
-                      : 'Crawler is admin-only and should run outside the public frontend.'
-                }
-              />
-            </div>
-
-            <div className="mt-5 flex flex-wrap gap-3">
-                <button
-                type="button"
-                onClick={loadData}
-                className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm transition hover:-translate-y-0.5"
-              >
-                <RefreshCcw className="size-4" />
-                Refresh
-              </button>
-              {crawlerEnabled ? (
-                <button
+            {crawlerEnabled ? (
+              <button
                 type="button"
                 onClick={handleRunCrawler}
                 disabled={crawlStatus === 'loading'}
-                className="animated-gradient rounded-2xl bg-[linear-gradient(90deg,rgba(15,23,42,1),rgba(30,41,59,0.96),rgba(14,116,144,0.92),rgba(180,83,9,0.88))] px-4 py-3 text-sm font-medium text-white shadow-[0_18px_34px_-18px_rgba(15,23,42,0.6)] transition-transform duration-200 hover:-translate-y-0.5 disabled:opacity-60"
+                className="animated-gradient self-start rounded-2xl bg-[linear-gradient(90deg,rgba(15,23,42,1),rgba(30,41,59,0.96),rgba(14,116,144,0.92),rgba(180,83,9,0.88))] px-4 py-3 text-sm font-medium text-white shadow-[0_18px_34px_-18px_rgba(15,23,42,0.6)] transition-transform duration-200 hover:-translate-y-0.5 disabled:opacity-60"
               >
-                {crawlStatus === 'loading' ? 'Đang crawl...' : 'Run Crawl'}
-                </button>
-              ) : null}
-            </div>
+                {crawlStatus === 'loading' ? 'Running crawl...' : 'Run Crawl'}
+              </button>
+            ) : null}
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-5">
-          {metrics.map(([label, value, note, tone]) => (
-            <StatCard key={label} label={label} value={value} note={note} tone={tone} />
+        <div className="grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {metrics.map((metric) => (
+            <StatCard
+              key={metric.label}
+              label={metric.label}
+              value={metric.value}
+              note={metric.note}
+              tone={metric.tone}
+              onClick={metric.onClick}
+              addon={metric.addon}
+            />
           ))}
         </div>
 
@@ -976,11 +1872,36 @@ export default function App() {
           </div>
         ) : null}
 
+        {renderEarlyForecastPanel({ limit: 6 })}
+
+        {renderGoogleTrendsPanel({ limit: 8 })}
+
+        {overview.intelligence ? (
+          <div className="grid gap-4 xl:grid-cols-3">
+            {renderWhatChangedPanel(overview.intelligence, { title: 'What changed since last crawl', badge: `${overview.metrics.activeAlerts} alerts`, badgeTone: 'warning' })}
+            {renderSourceSplitPanel(overview.intelligence, { title: 'Source mix across coverage' })}
+            {renderNarrativePanel(overview.intelligence, { title: 'Dominant market narrative' })}
+          </div>
+        ) : null}
+
         <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
           <Panel
             title={overview.topCompany ? `Top company: ${overview.topCompany.name}` : 'Top company'}
-            description="Doanh nghiệp nổi bật nhất trong batch gần nhất."
-            action={overview.topCompany ? <Badge tone={toneForScore(overview.topCompany.score)}>{overview.topCompany.sentimentLabel}</Badge> : null}
+            description="Batch highlight"
+            action={overview.topCompany ? (
+              <div className="flex flex-wrap justify-end gap-2">
+                <Badge tone={toneForScore(overview.topCompany.score)}>{overview.topCompany.sentimentLabel}</Badge>
+                <button
+                  type="button"
+                  onClick={() => handleExplainScore(overview.topCompany)}
+                  disabled={explainStatusByEntity[overview.topCompany.entityId] === 'loading'}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-cyan-800 shadow-sm disabled:opacity-60"
+                >
+                  {explainStatusByEntity[overview.topCompany.entityId] === 'loading' ? <LoaderCircle className="size-3.5 animate-spin" /> : <WandSparkles className="size-3.5" />}
+                  Explain
+                </button>
+              </div>
+            ) : null}
           >
             {overview.topCompany ? (
               <div className="space-y-4">
@@ -1005,14 +1926,27 @@ export default function App() {
                 <div className="rounded-3xl border border-cyan-100 bg-[linear-gradient(135deg,rgba(224,242,254,0.92),rgba(255,255,255,0.96),rgba(255,237,213,0.92))] px-4 py-4">
                   <div className="flex flex-wrap gap-2">
                     <Badge tone="info">{overview.topCompany.sourceCount} sources</Badge>
-                    <Badge tone="default">{overview.topCompany.last24hMentions} mentions / 24h</Badge>
-                    <Badge tone="positive">Seen until {formatDate(overview.topCompany.lastSeenAt)}</Badge>
-                    <Badge tone={toneForSeverity(overview.topCompany.forecastRisk24h)}>24h forecast {formatForecastLabel(overview.topCompany.forecastRisk24h)}</Badge>
-                    <Badge tone={toneForSeverity(overview.topCompany.forecastRisk7d)}>7d forecast {formatForecastLabel(overview.topCompany.forecastRisk7d)}</Badge>
+                    <Badge tone="default">{overview.topCompany.last24hMentions} / 24h</Badge>
+                    <Badge tone={toneForSeverity(overview.topCompany.forecastRisk24h)}>24h {formatForecastLabel(overview.topCompany.forecastRisk24h)}</Badge>
+                    <Badge tone={toneForSeverity(overview.topCompany.forecastRisk7d)}>7d {formatForecastLabel(overview.topCompany.forecastRisk7d)}</Badge>
                   </div>
-                  <p className="mt-4 text-sm leading-7 text-slate-600">{overview.topCompany.summary}</p>
-                  <p className="mt-3 text-sm leading-7 text-slate-500">{overview.topCompany.forecastSummary}</p>
+                  <p className="mt-4 line-clamp-2 text-sm leading-6 text-slate-700">{overview.topCompany.summary}</p>
                 </div>
+                <div className="grid gap-3 md:grid-cols-3">
+                  <div className="rounded-2xl border border-white/80 bg-white/70 px-4 py-3">
+                    <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Topic</p>
+                    <p className="mt-2 truncate text-sm font-semibold text-slate-900">{overview.topCompany.topTopics?.[0] || 'N/A'}</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/80 bg-white/70 px-4 py-3">
+                    <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Channel</p>
+                    <p className="mt-2 text-sm font-semibold text-slate-900">{overview.topCompany.sourceSplit?.[0]?.label || 'News'}</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/80 bg-white/70 px-4 py-3">
+                    <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Confidence</p>
+                    <p className="mt-2 text-sm font-semibold text-slate-900">{overview.topCompany.forecastConfidence || 'N/A'}</p>
+                  </div>
+                </div>
+                {renderScoreExplainPanel(overview.topCompany, { title: 'Score' })}
               </div>
             ) : (
               <p className="text-sm text-slate-500">Chưa có dữ liệu.</p>
@@ -1040,7 +1974,7 @@ export default function App() {
           </Panel>
         </div>
 
-        <Panel title="Latest market coverage" description="Các bài mới nhất vừa được giữ vào knowledge base.">
+        <Panel title="Latest market coverage" description="Các bài mới nhất trong knowledge base.">
           <div className="grid gap-3 xl:grid-cols-3">
             {(overview.latestNews || []).map((article) => (
               <a
@@ -1082,7 +2016,7 @@ export default function App() {
             <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Market intelligence workspace</p>
             <h1 className="mt-2 text-4xl font-semibold tracking-tight text-slate-900">Overview</h1>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-              Trang điều hành tập trung vào tín hiệu mới nhất, nhưng vẫn giữ toàn bộ lịch sử đã ingest để không làm mất ngữ cảnh cũ.
+              Trang điều hành tập trung vào tín hiệu mới nhất, vẫn giữ toàn bộ lịch sử đã ingest.
             </p>
           </div>
           <div className="flex gap-3">
@@ -1189,6 +2123,7 @@ export default function App() {
                   <p className="mt-4 text-sm leading-7 text-slate-600">{overview.topCompany.summary}</p>
                   <p className="mt-3 text-sm leading-7 text-slate-500">{overview.topCompany.forecastSummary}</p>
                 </div>
+                {renderScoreExplainPanel(overview.topCompany, { title: 'Why the top score' })}
               </div>
             ) : (
               <p className="text-sm text-slate-500">Chưa có dữ liệu.</p>
@@ -1216,7 +2151,7 @@ export default function App() {
           </Panel>
         </div>
 
-        <Panel title="Latest market coverage" description="Các bài mới nhất vừa được giữ vào knowledge base.">
+        <Panel title="Latest market coverage" description="Các bài mới nhất trong knowledge base.">
           <div className="grid gap-3 xl:grid-cols-3">
             {(overview.latestNews || []).map((article) => (
               <a
@@ -1244,14 +2179,13 @@ export default function App() {
     const highRiskCompanies = companies.filter((company) => company.forecastRisk7d === 'high').length
     const watchlistCompanies = companies.filter((company) => watchlistKeys.includes(company.key)).length
     const volumeLeader = [...companies].sort((left, right) => (right.mentions || 0) - (left.mentions || 0))[0] || null
-
     return (
       <div className="space-y-5">
         <div className="border-b border-slate-200 pb-5">
           <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Tracked companies</p>
           <h1 className="font-display mt-2 text-4xl font-semibold tracking-tight text-slate-900">Companies</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-            Company board này ưu tiên tốc độ đọc: thấy ngay brand nào đang nóng, brand nào cần review, và brand nào đáng giữ trong watchlist.
+          <p className="hidden">
+            Company board này ưu tiên tốc độ đọc: thấy ngay brand nóng, cần review và đáng giữ trong watchlist.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Badge tone="info">{companies.length} total companies</Badge>
@@ -1262,32 +2196,32 @@ export default function App() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
-          <ShellStat label="Tracked universe" value={companies.length} note="Entity set currently available for monitoring and comparison." />
-          <ShellStat label="High forecast" value={highRiskCompanies} note="Companies that look most likely to require review over the next 7 days." />
-          <ShellStat label="Watchlist" value={watchlistCompanies} note="Hand-picked companies pinned for side-by-side tracking." />
+          <ShellStat label="Tracked" value={companies.length} note="All companies" />
+          <ShellStat label="High risk" value={highRiskCompanies} note="7d forecast" />
+          <ShellStat label="Watchlist" value={watchlistCompanies} note="Pinned" />
         </div>
 
         <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
-          <Panel title="Company list" description="Sorted board for velocity, score and forecast risk.">
+          <Panel title="Company list" description="Sort, filter, select.">
             <div className="space-y-4">
               <div className="rounded-[24px] border border-slate-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.92),rgba(245,247,250,0.88))] p-4">
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div>
                     <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Visible rows</p>
                     <p className="font-display mt-2 text-2xl font-semibold text-slate-950">{paginatedCompanies.length}</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-500">Rows currently visible after filters and pagination.</p>
+                    <p className="hidden">Rows currently visible after filters and pagination.</p>
                   </div>
                   <div>
                     <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Sort mode</p>
                     <p className="font-display mt-2 text-2xl font-semibold text-slate-950">
                       {companySortMode === 'forecast' ? 'Forecast' : companySortMode === 'mentions' ? 'Mentions' : 'Score'}
                     </p>
-                    <p className="mt-1 text-xs leading-5 text-slate-500">Switch between predictive ranking, volume and pure sentiment score.</p>
+                    <p className="hidden">Switch between predictive ranking, volume and pure sentiment score.</p>
                   </div>
                   <div>
                     <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Risk filter</p>
                     <p className="font-display mt-2 text-2xl font-semibold text-slate-950">{companyRiskFilter === 'all' ? 'All' : formatForecastLabel(companyRiskFilter)}</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-500">Use filter to isolate specific 7d forecast levels.</p>
+                    <p className="hidden">Use filter to isolate specific 7d forecast levels.</p>
                   </div>
                 </div>
               </div>
@@ -1349,14 +2283,10 @@ export default function App() {
                               <Badge tone={toneForScore(company.score)}>Score {company.score}</Badge>
                             </div>
                             <p className={`mt-1 text-xs ${isSelected ? 'text-white/70' : 'text-slate-500'}`}>{company.industry}</p>
-                            <div className={`mt-3 grid gap-2 text-xs sm:grid-cols-3 ${isSelected ? 'text-white/74' : 'text-slate-500'}`}>
+                            <div className={`mt-3 grid gap-2 text-xs sm:grid-cols-2 ${isSelected ? 'text-white/74' : 'text-slate-500'}`}>
                               <div className="rounded-2xl border border-current/10 px-3 py-2">
                                 <p className="uppercase tracking-[0.14em] opacity-65">Mentions</p>
                                 <p className={`mt-1 text-sm font-semibold ${isSelected ? 'text-white' : 'text-slate-900'}`}>{company.mentions}</p>
-                              </div>
-                              <div className="rounded-2xl border border-current/10 px-3 py-2">
-                                <p className="uppercase tracking-[0.14em] opacity-65">Negative ratio</p>
-                                <p className={`mt-1 text-sm font-semibold ${isSelected ? 'text-white' : 'text-slate-900'}`}>{formatPercent(company.negativeRatio)}</p>
                               </div>
                               <div className="rounded-2xl border border-current/10 px-3 py-2">
                                 <p className="uppercase tracking-[0.14em] opacity-65">Confidence</p>
@@ -1439,17 +2369,28 @@ export default function App() {
             title={selectedCompany ? selectedCompany.name : 'Company detail'}
             description={selectedCompany ? `${selectedCompany.industry} • ${selectedCompany.sentimentLabel}` : 'Chọn một company'}
             action={selectedCompany ? (
-              <button
-                type="button"
-                onClick={() => toggleWatchlist(selectedCompany.key)}
-                className={`rounded-2xl border px-3 py-2 text-xs font-medium ${
-                  watchlistKeys.includes(selectedCompany.key)
-                    ? 'border-amber-200 bg-amber-50 text-amber-700'
-                    : 'border-slate-200 bg-white/80 text-slate-600'
-                }`}
-              >
-                {watchlistKeys.includes(selectedCompany.key) ? 'In watchlist' : 'Add to watchlist'}
-              </button>
+              <div className="flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleExplainScore(selectedCompany)}
+                  disabled={explainStatusByEntity[selectedCompany.entityId] === 'loading'}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-cyan-800 shadow-sm disabled:opacity-60"
+                >
+                  {explainStatusByEntity[selectedCompany.entityId] === 'loading' ? <LoaderCircle className="size-4 animate-spin" /> : <WandSparkles className="size-4" />}
+                  Explain
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleWatchlist(selectedCompany.key)}
+                  className={`rounded-2xl border px-3 py-2 text-xs font-medium ${
+                    watchlistKeys.includes(selectedCompany.key)
+                      ? 'border-amber-200 bg-amber-50 text-amber-700'
+                      : 'border-slate-200 bg-white/80 text-slate-600'
+                  }`}
+                >
+                  {watchlistKeys.includes(selectedCompany.key) ? 'Watching' : 'Watch'}
+                </button>
+              </div>
             ) : null}
           >
             {selectedCompany ? (
@@ -1457,25 +2398,24 @@ export default function App() {
                 <div className="rounded-[30px] border border-slate-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(240,249,255,0.94),rgba(255,247,237,0.9))] p-5 shadow-[0_24px_58px_-38px_rgba(15,23,42,0.18)]">
                   <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
                     <div>
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Selected company</p>
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Selected</p>
                       <h3 className="font-display mt-3 text-3xl font-semibold tracking-tight text-slate-950">{selectedCompany.name}</h3>
                       <p className="mt-2 text-sm text-slate-500">{selectedCompany.industry}</p>
-                      <p className="mt-4 text-sm leading-7 text-slate-600">{selectedCompany.summary}</p>
+                      <p className="hidden">{selectedCompany.summary}</p>
                       <div className="mt-4 flex flex-wrap gap-2">
                         <Badge tone={toneForScore(selectedCompany.score)}>{selectedCompany.risk}</Badge>
-                        <Badge tone={toneForSeverity(selectedCompany.forecastRisk24h)}>24h forecast {formatForecastLabel(selectedCompany.forecastRisk24h)}</Badge>
-                        <Badge tone={toneForSeverity(selectedCompany.forecastRisk7d)}>7d forecast {formatForecastLabel(selectedCompany.forecastRisk7d)}</Badge>
-                        <Badge tone="warning">Negative ratio {formatPercent(selectedCompany.negativeRatio)}</Badge>
-                        <Badge tone="info">Confidence {selectedCompany.forecastConfidence}</Badge>
+                        <Badge tone={toneForSeverity(selectedCompany.forecastRisk24h)}>24h {formatForecastLabel(selectedCompany.forecastRisk24h)}</Badge>
+                        <Badge tone={toneForSeverity(selectedCompany.forecastRisk7d)}>7d {formatForecastLabel(selectedCompany.forecastRisk7d)}</Badge>
+                        <Badge tone="info">Conf {selectedCompany.forecastConfidence}</Badge>
                       </div>
                     </div>
 
                     <div className="rounded-[26px] border border-slate-200/20 bg-[linear-gradient(145deg,rgba(15,23,42,0.96),rgba(30,41,59,0.94),rgba(14,116,144,0.78))] p-5 text-white shadow-[0_24px_58px_-36px_rgba(15,23,42,0.42)]">
                       <div className="flex items-center justify-between gap-4">
                         <div>
-                          <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">Signal texture</p>
+                          <p className="text-[11px] uppercase tracking-[0.18em] text-white/55">Signals</p>
                           <p className="font-display mt-3 text-3xl font-semibold tracking-tight text-white">{selectedCompany.mentions}</p>
-                          <p className="mt-2 text-sm text-white/70">7d mentions with confidence and negative pressure blended below.</p>
+                          <p className="hidden">7d signal blend.</p>
                         </div>
                         <Badge tone={toneForSeverity(selectedCompany.forecastRisk7d)}>7d {formatForecastLabel(selectedCompany.forecastRisk7d)}</Badge>
                       </div>
@@ -1529,9 +2469,22 @@ export default function App() {
                   </div>
                 </div>
 
-                {renderActionablePanel(selectedCompany)}
+                {renderScoreExplainPanel(selectedCompany)}
 
-                <div className="rounded-3xl border border-sky-100 bg-[linear-gradient(135deg,rgba(240,249,255,0.92),rgba(255,255,255,0.96),rgba(255,247,237,0.9))] px-4 py-4">
+                <CollapsiblePanel
+                  title="Forecast detail"
+                  kicker="Open forecast"
+                  open={isExpanded(`company-forecast-${selectedCompany.key}`)}
+                  onToggle={() => toggleExpanded(`company-forecast-${selectedCompany.key}`)}
+                  badge={<Badge tone={toneForSeverity(selectedCompany.forecastRisk7d)}>7d {formatForecastLabel(selectedCompany.forecastRisk7d)}</Badge>}
+                  preview={(
+                    <div className="flex flex-wrap gap-2">
+                      <Badge tone="default">{selectedCompany.sourceCount} sources</Badge>
+                      <Badge tone="info">{selectedCompany.forecastConfidence} conf</Badge>
+                      <Badge tone="warning">{selectedCompany.last24hMentions} / 24h</Badge>
+                    </div>
+                  )}
+                >
                   <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                     <div className="rounded-2xl border border-white/80 bg-white/60 px-3 py-3">
                       <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Sources</p>
@@ -1578,17 +2531,35 @@ export default function App() {
                       ))}
                     </div>
                   ) : null}
-                </div>
+                </CollapsiblePanel>
 
-                {renderEvidencePanel(selectedCompany)}
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Latest coverage</p>
+                <CollapsiblePanel
+                  title="Evidence"
+                  kicker="Open proof"
+                  open={isExpanded(`company-evidence-${selectedCompany.key}`)}
+                  onToggle={() => toggleExpanded(`company-evidence-${selectedCompany.key}`)}
+                  badge={<Badge tone="info">{selectedCompany.explainability?.keyArticles?.length || 0} items</Badge>}
+                  preview={(
+                    <div className="flex flex-wrap gap-2">
+                      <Badge tone="default">{selectedCompany.explainability?.strongestSource || 'Top source N/A'}</Badge>
+                      <Badge tone="warning">{formatPercent(selectedCompany.negativeRatio)} negative</Badge>
                     </div>
-                    <Badge tone="default">{selectedCompany.articles?.length || 0} linked articles</Badge>
-                  </div>
+                  )}
+                >
+                  {renderEvidencePanel(selectedCompany)}
+                </CollapsiblePanel>
+
+                <CollapsiblePanel
+                  title="Latest coverage"
+                  kicker="Open articles"
+                  open={isExpanded(`company-coverage-${selectedCompany.key}`)}
+                  onToggle={() => toggleExpanded(`company-coverage-${selectedCompany.key}`)}
+                  badge={<Badge tone="default">{selectedCompany.articles?.length || 0} articles</Badge>}
+                  preview={selectedCompany.articles?.[0] ? (
+                    <p className="line-clamp-1 text-sm font-medium text-slate-700">{selectedCompany.articles[0].title}</p>
+                  ) : null}
+                >
+                  <div className="space-y-2">
                   {(selectedCompany.articles || []).map((article) => (
                     <a
                       key={article.id}
@@ -1608,7 +2579,8 @@ export default function App() {
                       </div>
                     </a>
                   ))}
-                </div>
+                  </div>
+                </CollapsiblePanel>
               </div>
             ) : (
               <p className="text-sm text-slate-500">Không có company được chọn.</p>
@@ -1773,6 +2745,7 @@ export default function App() {
                 </div>
 
                 {renderActionablePanel(selectedCompany)}
+                {renderScoreExplainPanel(selectedCompany)}
 
                 <div className="rounded-3xl border border-sky-100 bg-[linear-gradient(135deg,rgba(240,249,255,0.92),rgba(255,255,255,0.96),rgba(255,247,237,0.9))] px-4 py-4">
                   <div className="flex flex-wrap gap-2">
@@ -1780,7 +2753,6 @@ export default function App() {
                     <Badge tone="default">{selectedCompany.last24hMentions} mentions / 24h</Badge>
                     <Badge tone="positive">{selectedCompany.lifetimeMentions} mentions all-time</Badge>
                     <Badge tone={toneForScore(selectedCompany.score)}>{selectedCompany.risk}</Badge>
-                    <Badge tone="warning">Negative ratio {formatPercent(selectedCompany.negativeRatio)}</Badge>
                     <Badge tone={toneForSeverity(selectedCompany.forecastRisk24h)}>24h forecast {formatForecastLabel(selectedCompany.forecastRisk24h)}</Badge>
                     <Badge tone={toneForSeverity(selectedCompany.forecastRisk7d)}>7d forecast {formatForecastLabel(selectedCompany.forecastRisk7d)}</Badge>
                     <Badge tone="info">Confidence {selectedCompany.forecastConfidence}</Badge>
@@ -1857,7 +2829,7 @@ export default function App() {
           <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Risk monitoring</p>
           <h1 className="font-display mt-2 text-4xl font-semibold tracking-tight text-slate-900">Alerts</h1>
           <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-            Alert queue được sinh từ company analytics thật, có tính đến cả mức độ mới và lịch sử mention đang lưu trong database.
+            Alert queue được sinh từ company analytics thật, có tính đến độ mới và lịch sử mention.
           </p>
         </div>
 
@@ -1947,6 +2919,7 @@ export default function App() {
                   </div>
                 </div>
                 {renderActionablePanel(selectedAlert)}
+                {renderScoreExplainPanel(selectedAlert, { title: 'Why this alert score' })}
                 {renderEvidencePanel(selectedAlert)}
               </div>
             ) : null}
@@ -1956,14 +2929,14 @@ export default function App() {
     )
   }
 
-  function renderCompare() {
+  function _renderCompare() {
     return (
       <div className="space-y-5">
         <div className="border-b border-slate-200 pb-5">
           <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Watchlist benchmarking</p>
           <h1 className="font-display mt-2 text-4xl font-semibold tracking-tight text-slate-900">Compare</h1>
           <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-            So sánh tối đa 3 thương hiệu để xem brand nào đáng ưu tiên theo mentions, negative ratio, forecast risk và top topics.
+            So sánh tối đa 3 thương hiệu theo mentions, negative ratio, forecast risk và top topics.
           </p>
         </div>
 
@@ -1987,7 +2960,7 @@ export default function App() {
         </Panel>
 
         <div className="grid gap-4 xl:grid-cols-3">
-          {compareCompanies.map((company) => (
+          {_compareCompanies.map((company) => (
             <div key={`compare-${company.key}`} className="rounded-3xl border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(240,249,255,0.94),rgba(255,247,237,0.86))] p-5 shadow-[0_18px_48px_-36px_rgba(15,23,42,0.2)]">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -2296,8 +3269,6 @@ export default function App() {
                 <p className="text-base font-semibold text-rose-700">Không thể tải dữ liệu</p>
                 <p className="mt-2 text-sm text-rose-600">{error}</p>
               </div>
-            ) : activeView === 'compare' ? (
-              renderCompare()
             ) : activeView === 'companies' ? (
               renderCompaniesV2()
             ) : activeView === 'alerts' ? (
@@ -2324,6 +3295,9 @@ export default function App() {
           </span>
         </span>
       </button>
+
+      {companyPanelOpen ? renderCompanySheet() : null}
+      {sourcePanelOpen ? renderSourceSheet() : null}
 
       {assistantOpen ? (
         <div className="fixed inset-0 z-50 bg-[linear-gradient(180deg,rgba(15,23,42,0.08),rgba(15,23,42,0.16))] backdrop-blur-[4px]">
@@ -2417,3 +3391,6 @@ export default function App() {
     </div>
   )
 }
+
+
+

@@ -30,6 +30,14 @@ services:
         value: "true"
       - key: AI_ARTICLE_LIMIT
         value: "10"
+      - key: YOUTUBE_API_KEY
+        sync: false
+      - key: YOUTUBE_SEARCH_MAX_RESULTS
+        value: "4"
+      - key: YOUTUBE_COMMENT_MAX_RESULTS
+        value: "20"
+      - key: YOUTUBE_LOOKBACK_HOURS
+        value: "168"
       - key: ENTITY_EXTRACTION_CONCURRENCY
         value: "4"
       - key: FEED_REQUEST_TIMEOUT_MS

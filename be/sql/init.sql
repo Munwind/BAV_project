@@ -94,8 +94,21 @@ CREATE TABLE IF NOT EXISTS ai_ner_cache (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS company_score_explanations (
+  entity_id BIGINT PRIMARY KEY REFERENCES entities(id) ON DELETE CASCADE,
+  signature_hash TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  factors JSONB NOT NULL DEFAULT '[]'::jsonb,
+  model_name TEXT,
+  generated_article_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+  generated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_entities_type ON entities(entity_type);
 CREATE INDEX IF NOT EXISTS idx_entities_ticker ON entities(ticker);
 CREATE INDEX IF NOT EXISTS idx_entity_aliases_entity_id ON entity_aliases(entity_id);
 CREATE INDEX IF NOT EXISTS idx_entity_aliases_normalized_alias ON entity_aliases(normalized_alias);
 CREATE INDEX IF NOT EXISTS idx_article_entities_entity_id ON article_entities(entity_id);
+CREATE INDEX IF NOT EXISTS idx_company_score_explanations_signature ON company_score_explanations(signature_hash);

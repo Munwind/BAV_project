@@ -22,6 +22,11 @@ Service AI ho tro 2 mode:
 - `GET /api/ai/health`
 - `POST /api/ai/chat`
 
+Crawler hien ingest:
+
+- RSS tu cac bao kinh doanh/tai chinh
+- YouTube comments tu cac truy van nguon tai chinh/chung khoan duoc cau hinh san
+
 ## AI flow
 
 1. Express lay bai viet moi nhat tu PostgreSQL
@@ -55,6 +60,10 @@ OPENAI_BASE_URL=
 OPENAI_MODEL=gpt-4.1-mini
 AI_SERVICE_URL=http://localhost:8000
 AI_ARTICLE_LIMIT=10
+YOUTUBE_API_KEY=
+YOUTUBE_SEARCH_MAX_RESULTS=4
+YOUTUBE_COMMENT_MAX_RESULTS=20
+YOUTUBE_LOOKBACK_HOURS=168
 AI_REASONING_EFFORT=low
 ```
 

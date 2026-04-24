@@ -80,6 +80,31 @@ class ChatRequest(BaseModel):
     history: list[dict[str, str]] = Field(default_factory=list)
 
 
+class ExplainArticle(BaseModel):
+    title: str
+    source_name: str | None = None
+    published_at: str | None = None
+    sentiment_signal: int = 0
+    snippet: str | None = None
+
+
+class ExplainScoreRequest(BaseModel):
+    entity_name: str = Field(min_length=2, max_length=400)
+    score: int
+    sentiment_label: str | None = None
+    negative_ratio: int | float = 0
+    negative_signals: int = 0
+    recent_mentions: int = 0
+    last24h_mentions: int = 0
+    source_count: int = 0
+    strongest_source: str | None = None
+    top_topics: list[str] = Field(default_factory=list)
+    forecast_summary: str | None = None
+    articles: list[ExplainArticle] = Field(default_factory=list)
+    locale: str = "vi-VN"
+    model: str | None = None
+
+
 class NerRequest(BaseModel):
     text: str = Field(min_length=3, max_length=8000)
     locale: str = "vi-VN"
@@ -275,6 +300,28 @@ def generate_ner_answer(system_prompt: str, user_prompt: str, model: str | None)
         max_tokens=NER_MAX_TOKENS,
         seed=NER_SEED,
     )
+
+
+def normalize_explanation_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    summary = str(payload.get("summary", "")).strip()
+    factors = payload.get("factors", [])
+
+    if not isinstance(factors, list):
+        factors = []
+
+    normalized_factors = [
+        str(item).strip()
+        for item in factors
+        if str(item).strip()
+    ][:3]
+
+    if not summary:
+        raise ValueError("Explanation payload is missing summary")
+
+    return {
+        "summary": summary,
+        "factors": normalized_factors,
+    }
 
 
 def build_text_ner_prompt(text: str, locale: str) -> tuple[str, str]:
@@ -651,6 +698,67 @@ Context bai viet:
         "answer": answer,
         "model": used_model,
         "references": references,
+        "usage": {
+            "input_tokens": getattr(usage, "input_tokens", None) if usage else None,
+            "output_tokens": getattr(usage, "output_tokens", None) if usage else None,
+            "total_tokens": getattr(usage, "total_tokens", None) if usage else None,
+        },
+    }
+
+
+@app.post("/explain-score")
+def explain_score(request: ExplainScoreRequest) -> dict[str, Any]:
+    articles = [
+        {
+            "title": article.title,
+            "source": article.source_name,
+            "published_at": article.published_at,
+            "sentiment_signal": article.sentiment_signal,
+            "snippet": article.snippet,
+        }
+        for article in request.articles[:4]
+    ]
+
+    system_prompt = """
+Ban la tro ly AI giai thich sentiment score cho dashboard doanh nghiep.
+Yeu cau:
+- Tra ve DUY NHAT mot JSON object hop le theo dang {"summary":"string","factors":["string"]}.
+- summary phai giai thich ngan gon vi sao score cao/thap/trung tinh dua tren metric va bai viet duoc cung cap.
+- factors la toi da 3 y ngan, cu the, de dua len UI.
+- Khong duoc hardcode cau mau trung lap. Phai neo giai thich vao metric va evidence duoc dua vao.
+- Khong duoc suy dien su kien khong co trong du lieu.
+- Viet tieng Viet tu nhien, trung lap, gon.
+    """.strip()
+
+    user_prompt = f"""
+Locale uu tien: {request.locale}
+
+Cong ty: {request.entity_name}
+Score: {request.score}
+Nhan sentiment: {request.sentiment_label or 'N/A'}
+Negative ratio: {request.negative_ratio}
+Negative signals: {request.negative_signals}
+Mentions 7d: {request.recent_mentions}
+Mentions 24h: {request.last24h_mentions}
+So nguon: {request.source_count}
+Nguon noi bat: {request.strongest_source or 'N/A'}
+Top topics: {json.dumps(request.top_topics[:4], ensure_ascii=False)}
+Forecast summary: {request.forecast_summary or 'N/A'}
+
+Evidence articles:
+{json.dumps(articles, ensure_ascii=False, indent=2)}
+    """.strip()
+
+    try:
+        raw_answer, used_model, usage = generate_chat_answer(system_prompt, user_prompt, request.model)
+        parsed_payload = extract_json_object(raw_answer)
+        normalized = normalize_explanation_payload(parsed_payload)
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"OpenAI request failed: {error}") from error
+
+    return {
+        **normalized,
+        "model": used_model,
         "usage": {
             "input_tokens": getattr(usage, "input_tokens", None) if usage else None,
             "output_tokens": getattr(usage, "output_tokens", None) if usage else None,

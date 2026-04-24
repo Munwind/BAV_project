@@ -9,9 +9,10 @@ const {
   listSources,
 } = require('./services/crawler-service')
 const { askAi, checkAiHealth, extractCompanyCandidates } = require('./services/ai-service')
-const { getTrackedCompanies, getAlerts, getOverview } = require('./services/analytics-service')
+const { getTrackedCompanies, getAlerts, getOverview, explainCompanyScoreOnDemand } = require('./services/analytics-service')
 const { findCompanyEntityByText } = require('./services/entity-service')
 const { searchAll } = require('./services/search-service')
+const { getGoogleDailyTrends } = require('./services/google-trends-service')
 
 const app = express()
 
@@ -133,11 +134,33 @@ app.get('/api/overview', async (req, res, next) => {
   }
 })
 
+app.get('/api/trends/google', async (req, res, next) => {
+  try {
+    const trends = await getGoogleDailyTrends({
+      geo: req.query.geo ? String(req.query.geo).trim().toUpperCase() : undefined,
+      hl: req.query.hl ? String(req.query.hl).trim() : undefined,
+      limit: req.query.limit ? Number(req.query.limit) : undefined,
+    })
+    res.json({ ok: true, ...trends })
+  } catch (error) {
+    next(error)
+  }
+})
+
 app.get('/api/companies', async (req, res, next) => {
   try {
     const limit = Number(req.query.limit || 120)
     const items = await getTrackedCompanies(limit)
     res.json({ ok: true, total: items.length, items })
+  } catch (error) {
+    next(error)
+  }
+})
+
+app.post('/api/companies/:entityId/explain', async (req, res, next) => {
+  try {
+    const result = await explainCompanyScoreOnDemand(req.params.entityId)
+    res.json({ ok: true, ...result })
   } catch (error) {
     next(error)
   }

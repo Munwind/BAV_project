@@ -1,6 +1,8 @@
+const { createHash } = require('crypto')
 const { query } = require('../db')
 const { listArticles } = require('./crawler-service')
 const { slugify } = require('./entity-service')
+const { explainCompanyScore } = require('./ai-client')
 const { normalizeText } = require('./sentiment-heuristics')
 
 const NEGATIVE_CUES = [
@@ -195,6 +197,49 @@ function buildSourceContributions(rows) {
     })
 }
 
+function classifySourceChannel(row) {
+  const sourceKey = String(row.article?.source_key || row.source_key || '').toLowerCase()
+  const category = String(row.article?.category || row.category || '').toLowerCase()
+
+  if (sourceKey.startsWith('youtube-') || category === 'video-comments') {
+    return 'youtube'
+  }
+
+  return 'news'
+}
+
+function buildSourceSplit(rows) {
+  const buckets = new Map([
+    ['news', { channel: 'news', label: 'News', mentions: 0, negativeMentions: 0, sources: new Set() }],
+    ['youtube', { channel: 'youtube', label: 'YouTube', mentions: 0, negativeMentions: 0, sources: new Set() }],
+  ])
+
+  for (const row of rows) {
+    const channel = classifySourceChannel(row)
+    const bucket = buckets.get(channel) || buckets.get('news')
+    bucket.mentions += 1
+    if (Number(row.sentiment_signal || 0) < 0) {
+      bucket.negativeMentions += 1
+    }
+    if (row.article?.source_key) {
+      bucket.sources.add(String(row.article.source_key))
+    }
+  }
+
+  return [...buckets.values()]
+    .map((bucket) => ({
+      channel: bucket.channel,
+      label: bucket.label,
+      mentions: bucket.mentions,
+      negativeMentions: bucket.negativeMentions,
+      sourceCount: bucket.sources.size,
+      share: rows.length ? Math.round((bucket.mentions / rows.length) * 100) : 0,
+      negativeShare: bucket.mentions ? Math.round((bucket.negativeMentions / bucket.mentions) * 100) : 0,
+    }))
+    .filter((bucket) => bucket.mentions > 0)
+    .sort((left, right) => right.mentions - left.mentions)
+}
+
 function buildKeyArticles(rows, now) {
   return [...rows]
     .sort((left, right) => {
@@ -249,6 +294,72 @@ function buildChanges24h({ rows, now, last24hMentions, negativeSignals }) {
   }
 }
 
+function buildWhatChanged({
+  companyName,
+  score,
+  changes24h,
+  sourceContributions,
+  topTopics,
+}) {
+  const strongestSource = sourceContributions[0]?.sourceName || 'the current source mix'
+  const leadTopic = topTopics[0] || 'recent coverage'
+  const direction =
+    changes24h.mentionDelta > 0
+      ? 'accelerated'
+      : changes24h.mentionDelta < 0
+        ? 'cooled'
+        : 'held flat'
+
+  const headline =
+    changes24h.last24hMentions === 0
+      ? `No fresh coverage landed for ${companyName} in the last 24h.`
+      : `${companyName} ${direction} in the last 24h, with ${changes24h.last24hMentions} fresh mentions.`
+
+  const bullets = [
+    changes24h.summary,
+    `${strongestSource} is the heaviest source in the current evidence set.`,
+    `${leadTopic} is the dominant narrative keeping the score at ${score}.`,
+  ]
+
+  return {
+    headline,
+    bullets,
+    strongestSource,
+    leadTopic,
+  }
+}
+
+function buildNarrative({
+  companyName,
+  topTopics,
+  sourceContributions,
+  sourceSplit,
+  negativeSignals,
+  forecast,
+}) {
+  const leadTopic = topTopics[0] || 'recent market chatter'
+  const leadSource = sourceContributions[0]?.sourceName || 'current coverage'
+  const leadChannel = sourceSplit[0]?.label || 'News'
+  const pressureWord =
+    negativeSignals > 0 && forecast.level7d === 'high'
+      ? 'downside pressure'
+      : forecast.level7d === 'high'
+        ? 'elevated attention'
+        : forecast.level7d === 'medium'
+          ? 'watchlist pressure'
+        : 'baseline attention'
+
+  return {
+    title: `${leadTopic} narrative`,
+    summary: `${companyName} is being shaped mainly by ${leadTopic.toLowerCase()} across ${leadChannel.toLowerCase()} sources, led by ${leadSource}.`,
+    pressure: pressureWord,
+    negativeSignals,
+    leadTopic,
+    leadSource,
+    leadChannel,
+  }
+}
+
 function buildActionableBrief({
   companyName,
   score,
@@ -285,18 +396,209 @@ function buildActionableBrief({
   }
 }
 
+function buildCompanyExplanationSignature(rows) {
+  const payload = rows.map((row) => ({
+    articleId: Number(row.article_id || row.article?.id || 0),
+    mentionCount: Number(row.mention_count || 0),
+    sentimentSignal: Number(row.sentiment_signal || 0),
+    confidence: Number(row.confidence || 0),
+    entityUpdatedAt: row.article_entity_updated_at || null,
+  }))
+
+  return createHash('sha256').update(JSON.stringify(payload)).digest('hex')
+}
+
+async function getCachedCompanyScoreExplanation(entityId, signatureHash) {
+  const result = await query(
+    `
+      SELECT
+        entity_id,
+        signature_hash,
+        summary,
+        factors,
+        model_name,
+        generated_article_ids,
+        generated_at
+      FROM company_score_explanations
+      WHERE entity_id = $1 AND signature_hash = $2
+      LIMIT 1
+    `,
+    [entityId, signatureHash],
+  )
+
+  return result.rows[0] || null
+}
+
+async function saveCompanyScoreExplanation({
+  entityId,
+  signatureHash,
+  summary,
+  factors,
+  modelName,
+  articleIds,
+}) {
+  await query(
+    `
+      INSERT INTO company_score_explanations (
+        entity_id,
+        signature_hash,
+        summary,
+        factors,
+        model_name,
+        generated_article_ids,
+        generated_at,
+        updated_at
+      )
+      VALUES ($1, $2, $3, $4::jsonb, $5, $6::jsonb, NOW(), NOW())
+      ON CONFLICT (entity_id)
+      DO UPDATE SET
+        signature_hash = EXCLUDED.signature_hash,
+        summary = EXCLUDED.summary,
+        factors = EXCLUDED.factors,
+        model_name = EXCLUDED.model_name,
+        generated_article_ids = EXCLUDED.generated_article_ids,
+        generated_at = NOW(),
+        updated_at = NOW()
+    `,
+    [
+      entityId,
+      signatureHash,
+      summary,
+      JSON.stringify(factors || []),
+      modelName || null,
+      JSON.stringify(articleIds || []),
+    ],
+  )
+}
+
+async function ensureCompanyScoreExplanation({
+  entityId,
+  companyName,
+  rows,
+  now,
+  score,
+  sentimentLabel,
+  negativeSignals,
+  recentMentions,
+  last24hMentions,
+  forecast,
+  forceRefresh = false,
+}) {
+  const signatureHash = buildCompanyExplanationSignature(rows)
+
+  if (!forceRefresh) {
+    const cached = await getCachedCompanyScoreExplanation(entityId, signatureHash)
+    if (cached) {
+      return {
+        signatureHash,
+        summary: cached.summary,
+        factors: Array.isArray(cached.factors) ? cached.factors : [],
+        modelName: cached.model_name || null,
+      }
+    }
+  }
+
+  const keyArticles = buildKeyArticles(rows, now)
+  const sourceContributions = buildSourceContributions(rows)
+  const topTopics = buildTopicSummary(rows, companyName)
+  const negativeRatio = rows.length ? Math.round((negativeSignals / rows.length) * 100) : 0
+
+  try {
+    const explanation = await explainCompanyScore({
+      entity_name: companyName,
+      score,
+      sentiment_label: sentimentLabel,
+      negative_ratio: negativeRatio,
+      negative_signals: negativeSignals,
+      recent_mentions: recentMentions,
+      last24h_mentions: last24hMentions,
+      source_count: sourceContributions.length,
+      strongest_source: sourceContributions[0]?.sourceName || null,
+      top_topics: topTopics,
+      forecast_summary: forecast.summary,
+      articles: keyArticles.slice(0, 3).map((article) => ({
+        title: article.title,
+        source_name: article.sourceName,
+        published_at: article.publishedAt,
+        sentiment_signal: article.sentimentSignal,
+        snippet: article.negativeSnippet,
+      })),
+    })
+
+    await saveCompanyScoreExplanation({
+      entityId,
+      signatureHash,
+      summary: explanation.summary,
+      factors: explanation.factors || [],
+      modelName: explanation.model || null,
+      articleIds: keyArticles.slice(0, 3).map((article) => article.id).filter(Boolean),
+    })
+
+    return {
+      signatureHash,
+      summary: explanation.summary,
+      factors: explanation.factors || [],
+      modelName: explanation.model || null,
+    }
+  } catch (_error) {
+    return {
+      signatureHash,
+      summary: null,
+      factors: [],
+      modelName: null,
+    }
+  }
+}
+
+async function getCompanyScoreExplanationSnapshot({
+  entityId,
+  rows,
+  forceRefresh = false,
+  generationContext,
+}) {
+  const signatureHash = buildCompanyExplanationSignature(rows)
+
+  if (!forceRefresh) {
+    const cached = await getCachedCompanyScoreExplanation(entityId, signatureHash)
+    return cached
+      ? {
+          signatureHash,
+          summary: cached.summary,
+          factors: Array.isArray(cached.factors) ? cached.factors : [],
+          modelName: cached.model_name || null,
+        }
+      : {
+          signatureHash,
+          summary: null,
+          factors: [],
+          modelName: null,
+        }
+  }
+
+  return ensureCompanyScoreExplanation({
+    ...generationContext,
+    entityId,
+    rows,
+    forceRefresh: true,
+  })
+}
+
 function buildExplainability({
   rows,
   companyName,
   now,
   score,
+  totalSignal,
   negativeSignals,
+  recentMentions,
   last24hMentions,
   forecast,
+  scoreExplanation,
 }) {
   const keyArticles = buildKeyArticles(rows, now)
   const negativeArticles = keyArticles.filter((item) => item.sentimentSignal < 0).slice(0, 3)
   const sourceContributions = buildSourceContributions(rows)
+  const sourceSplit = buildSourceSplit(rows)
   const averageModelConfidence = clamp(
     Math.round(rows.reduce((sum, row) => sum + Number(row.confidence || 0), 0) / Math.max(rows.length, 1) * 100),
     0,
@@ -316,11 +618,15 @@ function buildExplainability({
     keyArticles,
     negativeArticles,
     sourceContributions,
+    sourceSplit,
     averageModelConfidence,
     strongestSource: sourceContributions[0]?.sourceName || null,
     topTopics,
     negativeRatio: Math.round(negativeRatio * 100),
     changes24h,
+    scoreExplain: scoreExplanation?.summary || null,
+    scoreFactors: scoreExplanation?.factors || [],
+    scoreExplainModel: scoreExplanation?.modelName || null,
     scoreBreakdown,
   }
 }
@@ -430,6 +736,7 @@ async function getCompanyMentionRows() {
         ae.sentiment_signal,
         ae.confidence,
         ae.raw_text,
+        ae.updated_at AS article_entity_updated_at,
         e.id AS entity_id,
         e.canonical_name,
         e.normalized_name,
@@ -477,7 +784,7 @@ async function getCompanyMentionRows() {
   }))
 }
 
-function buildCompanyMetrics(entityRows) {
+async function buildCompanyMetrics(entityRows, { forceRefreshExplanation = false } = {}) {
   const orderedRows = [...entityRows].sort(
     (left, right) =>
       new Date(right.article.published_at || right.article.created_at || 0).getTime()
@@ -516,13 +823,47 @@ function buildCompanyMetrics(entityRows) {
     sourceCount,
     lifetimeMentions,
   })
+  const sentimentLabel = summarizeSentiment(score)
+  const scoreExplanation = await getCompanyScoreExplanationSnapshot({
+    entityId: first.entity_id,
+    rows: orderedRows,
+    forceRefresh: forceRefreshExplanation,
+    generationContext: {
+      companyName: first.canonical_name,
+      now,
+      score,
+      sentimentLabel,
+      negativeSignals,
+      recentMentions,
+      last24hMentions,
+      forecast,
+    },
+  })
   const explainability = buildExplainability({
     rows: orderedRows,
     companyName: first.canonical_name,
     now,
     score,
+    totalSignal,
     negativeSignals,
+    recentMentions,
     last24hMentions,
+    forecast,
+    scoreExplanation,
+  })
+  const whatChanged = buildWhatChanged({
+    companyName: first.canonical_name,
+    score,
+    changes24h: explainability.changes24h,
+    sourceContributions: explainability.sourceContributions,
+    topTopics: explainability.topTopics,
+  })
+  const narrative = buildNarrative({
+    companyName: first.canonical_name,
+    topTopics: explainability.topTopics,
+    sourceContributions: explainability.sourceContributions,
+    sourceSplit: explainability.sourceSplit,
+    negativeSignals,
     forecast,
   })
   const actionable = buildActionableBrief({
@@ -543,7 +884,7 @@ function buildCompanyMetrics(entityRows) {
     industry: first.industry || 'General',
     ticker: first.ticker || null,
     score,
-    sentimentLabel: summarizeSentiment(score),
+    sentimentLabel,
     trend: getTrendLabel(last24hMentions, lifetimeMentions),
     risk: severity === 'high' ? 'Cao' : severity === 'medium' ? 'Trung bình' : 'Thấp',
     mentions: recentMentions,
@@ -561,7 +902,11 @@ function buildCompanyMetrics(entityRows) {
     sourceModes: [...new Set(orderedRows.map((row) => row.source_mode).filter(Boolean))],
     lastSeenAt: latestArticle?.last_seen_at || latestArticle?.published_at || null,
     topTopics: explainability.topTopics,
+    explain: scoreExplanation.summary,
     explainability,
+    sourceSplit: explainability.sourceSplit,
+    whatChanged,
+    narrative,
     actionable,
     forecast,
     forecastRisk24h: forecast.level24h,
@@ -584,8 +929,13 @@ async function getTrackedCompanies() {
     grouped.get(key).push(row)
   }
 
-  return [...grouped.values()]
-    .map((rows) => buildCompanyMetrics(rows))
+  const items = []
+
+  for (const rows of grouped.values()) {
+    items.push(await buildCompanyMetrics(rows))
+  }
+
+  return items
     .filter((company) =>
       company.lifetimeMentions >= 2
       || Boolean(company.ticker)
@@ -599,6 +949,69 @@ async function getTrackedCompanies() {
     })
 }
 
+async function refreshCompanyScoreExplanations(entityIds = []) {
+  const uniqueIds = [...new Set(entityIds.map((value) => Number(value)).filter(Boolean))]
+  if (!uniqueIds.length) {
+    return { updated: 0, skipped: 0 }
+  }
+
+  const mentionRows = await getCompanyMentionRows()
+  const grouped = new Map()
+
+  for (const row of mentionRows) {
+    const entityId = Number(row.entity_id)
+    if (!uniqueIds.includes(entityId)) continue
+    const key = String(entityId)
+    if (!grouped.has(key)) {
+      grouped.set(key, [])
+    }
+    grouped.get(key).push(row)
+  }
+
+  let updated = 0
+  let skipped = 0
+
+  for (const rows of grouped.values()) {
+    const company = await buildCompanyMetrics(rows, { forceRefreshExplanation: true })
+    if (company.explain) {
+      updated += 1
+    } else {
+      skipped += 1
+    }
+  }
+
+  return { updated, skipped }
+}
+
+async function explainCompanyScoreOnDemand(entityId) {
+  const numericEntityId = Number(entityId)
+  if (!numericEntityId) {
+    const error = new Error('Valid entity id is required')
+    error.status = 400
+    throw error
+  }
+
+  const mentionRows = await getCompanyMentionRows()
+  const rows = mentionRows.filter((row) => Number(row.entity_id) === numericEntityId)
+
+  if (!rows.length) {
+    const error = new Error('Company entity was not found in current mention data')
+    error.status = 404
+    throw error
+  }
+
+  const company = await buildCompanyMetrics(rows, { forceRefreshExplanation: true })
+
+  return {
+    entityId: company.entityId,
+    companyKey: company.key,
+    companyName: company.name,
+    score: company.score,
+    explain: company.explain || null,
+    explainability: company.explainability,
+  }
+}
+
 async function getAlerts() {
   const companies = await getTrackedCompanies()
 
@@ -609,6 +1022,7 @@ async function getAlerts() {
 
       return {
         id: company.key,
+        entityId: company.entityId,
         companyKey: company.key,
         companyName: company.name,
         severity,
@@ -624,6 +1038,7 @@ async function getAlerts() {
         negativeRatio: company.negativeRatio,
         topTopics: company.topTopics,
         sentimentLabel: company.sentimentLabel,
+        explain: company.explain,
         actionable: company.actionable,
         explainability: company.explainability,
         forecastRisk24h: company.forecastRisk24h,
@@ -654,6 +1069,35 @@ async function getOverview() {
   const averageScore = companies.length
     ? Math.round(companies.reduce((sum, company) => sum + company.score, 0) / companies.length)
     : 0
+  const totalMentions24h = companies.reduce((sum, company) => sum + (company.last24hMentions || 0), 0)
+  const highRiskCount = companies.filter((company) => company.forecastRisk7d === 'high').length
+  const aggregateSourceSplitMap = new Map()
+
+  for (const company of companies) {
+    for (const item of company.sourceSplit || []) {
+      const current = aggregateSourceSplitMap.get(item.channel) || {
+        channel: item.channel,
+        label: item.label,
+        mentions: 0,
+        negativeMentions: 0,
+        sourceCount: 0,
+      }
+      current.mentions += Number(item.mentions || 0)
+      current.negativeMentions += Number(item.negativeMentions || 0)
+      current.sourceCount += Number(item.sourceCount || 0)
+      aggregateSourceSplitMap.set(item.channel, current)
+    }
+  }
+
+  const aggregateSourceSplit = [...aggregateSourceSplitMap.values()]
+    .map((item) => ({
+      ...item,
+      share: companies.length ? Math.round((item.mentions / Math.max(companies.reduce((sum, company) => sum + (company.lifetimeMentions || 0), 0), 1)) * 100) : 0,
+      negativeShare: item.mentions ? Math.round((item.negativeMentions / item.mentions) * 100) : 0,
+    }))
+    .sort((left, right) => right.mentions - left.mentions)
+
+  const topNarrativeCompany = companies.find((company) => company.narrative) || null
 
   return {
     metrics: {
@@ -662,6 +1106,26 @@ async function getOverview() {
       averageSentiment: averageScore,
       trackedSources: new Set(companies.flatMap((company) => company.articles.map((article) => article.source_key))).size,
       knowledgeBase: companies.reduce((sum, company) => sum + company.lifetimeMentions, 0),
+    },
+    intelligence: {
+      whatChanged: {
+        headline:
+          totalMentions24h > 0
+            ? `${totalMentions24h} fresh mentions landed in the last 24h across the tracked universe.`
+            : 'No new mentions landed in the last 24h across the tracked universe.',
+        bullets: [
+          `${highRiskCount} companies currently sit in high 7d forecast risk.`,
+          companies[0]?.whatChanged?.headline || 'No company-level movement was detected yet.',
+          companies[0]?.actionable?.recommendedAction || 'Run another crawl to refresh the next analyst brief.',
+        ],
+      },
+      sourceSplit: aggregateSourceSplit,
+      topNarrative: topNarrativeCompany
+        ? {
+          companyName: topNarrativeCompany.name,
+          ...topNarrativeCompany.narrative,
+        }
+        : null,
     },
     topCompany: companies[0] || null,
     latestAlerts: alerts.slice(0, 4),
@@ -672,9 +1136,15 @@ async function getOverview() {
 module.exports = {
   buildActionableBrief,
   buildRiskForecast,
+  buildCompanyExplanationSignature,
+  buildNarrative,
+  buildSourceSplit,
+  buildWhatChanged,
   calculateCompanyScore,
+  explainCompanyScoreOnDemand,
   getTrackedCompanies,
   getAlerts,
   getTrendDelta,
   getOverview,
+  refreshCompanyScoreExplanations,
 }
