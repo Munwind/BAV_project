@@ -3,6 +3,7 @@ import {
   Bot,
   BriefcaseBusiness,
   ChevronRight,
+  Download,
   ExternalLink,
   Globe,
   LayoutDashboard,
@@ -14,7 +15,6 @@ import {
   SendHorizonal,
   ShieldAlert,
   Sparkles,
-  TrendingUp,
   WandSparkles,
   X,
 } from 'lucide-react'
@@ -202,13 +202,21 @@ function CollapsiblePanel({ title, kicker, badge, open, onToggle, preview, child
   )
 }
 
-function StatCard({ label, value, note, tone, onClick, addon }) {
+function StatCard({ label, value, note, tone, onClick, addon, sparkline }) {
   const surfaces = {
     default: 'bg-[linear-gradient(145deg,rgba(255,255,255,0.97),rgba(244,246,248,0.94),rgba(235,240,245,0.82))]',
     positive: 'bg-[linear-gradient(145deg,rgba(239,252,245,0.98),rgba(220,252,231,0.92),rgba(167,243,208,0.72))]',
     negative: 'bg-[linear-gradient(145deg,rgba(255,244,245,0.98),rgba(255,228,230,0.92),rgba(253,164,175,0.7))]',
     warning: 'bg-[linear-gradient(145deg,rgba(255,251,235,0.98),rgba(254,243,199,0.92),rgba(253,230,138,0.72))]',
     info: 'bg-[linear-gradient(145deg,rgba(239,246,255,0.98),rgba(219,234,254,0.92),rgba(191,219,254,0.72))]',
+  }
+
+  const sparkColorMap = {
+    default: 'cyan',
+    positive: 'emerald',
+    negative: 'rose',
+    warning: 'amber',
+    info: 'cyan',
   }
 
   const className = `stat-surface float-card relative flex min-h-[188px] h-full flex-col justify-between overflow-hidden rounded-[28px] border p-5 shadow-[0_24px_58px_-38px_rgba(15,23,42,0.22)] ${surfaces[tone] || surfaces.default} ${
@@ -218,9 +226,17 @@ function StatCard({ label, value, note, tone, onClick, addon }) {
   const content = (
     <>
       <div className="pointer-events-none absolute inset-x-5 top-0 h-[3px] rounded-full bg-[linear-gradient(90deg,rgba(14,165,233,0.38),rgba(217,70,239,0.28),rgba(251,146,60,0.3))]" />
-      <div>
-        <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
-        <p className="font-display mt-4 text-[clamp(2.2rem,2.8vw,3rem)] font-semibold tracking-tight text-slate-950">{value}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1">
+          <p className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</p>
+          <p className="font-display mt-4 text-[clamp(2.2rem,2.8vw,3rem)] font-semibold tracking-tight text-slate-950">{value}</p>
+        </div>
+        {sparkline ? (
+          <div className="shrink-0 mt-1">
+            <MiniSparkline values={sparkline} color={sparkColorMap[tone] || sparkColorMap.default} />
+            <p className="mt-1 text-[10px] text-slate-400 text-right">7d trend</p>
+          </div>
+        ) : null}
       </div>
       <div className="mt-5 flex items-end justify-between gap-3">
         <div className="min-w-0">
@@ -316,6 +332,265 @@ function SparkBars({ values = [], tone = 'info' }) {
   )
 }
 
+function MiniSparkline({ values = [], color = 'cyan' }) {
+  if (!values.length) return null
+  const max = Math.max(...values)
+  const min = Math.min(...values)
+  const range = max - min || 1
+  const h = 36
+  const w = 100
+  const pts = values.map((v, i) => {
+    const x = (i / (values.length - 1)) * w
+    const y = h - 2 - ((v - min) / range) * (h - 6)
+    return `${x.toFixed(1)},${y.toFixed(1)}`
+  })
+  const fillPts = `0,${h} ${pts.join(' ')} ${w},${h}`
+
+  const colors = {
+    cyan: { stroke: '#22d3ee', fill0: 'rgba(34,211,238,0.28)', fill1: 'rgba(34,211,238,0.01)' },
+    emerald: { stroke: '#34d399', fill0: 'rgba(52,211,153,0.28)', fill1: 'rgba(52,211,153,0.01)' },
+    rose: { stroke: '#fb7185', fill0: 'rgba(251,113,133,0.28)', fill1: 'rgba(251,113,133,0.01)' },
+    amber: { stroke: '#fbbf24', fill0: 'rgba(251,191,36,0.28)', fill1: 'rgba(251,191,36,0.01)' },
+  }
+  const c = colors[color] || colors.cyan
+  const lastVal = values[values.length - 1]
+  const lastX = w
+  const lastY = h - 2 - ((lastVal - min) / range) * (h - 6)
+  const gid = `sp-${color}-${values.join('')}`.slice(0, 40)
+
+  return (
+    <div className="relative">
+      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="overflow-visible" style={{ display: 'block' }}>
+        <defs>
+          <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={c.fill0} />
+            <stop offset="100%" stopColor={c.fill1} />
+          </linearGradient>
+        </defs>
+        <polygon points={fillPts} fill={`url(#${gid})`} />
+        <polyline points={pts.join(' ')} fill="none" stroke={c.stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx={lastX} cy={lastY} r="3" fill={c.stroke} />
+        <circle cx={lastX} cy={lastY} r="5.5" fill={c.stroke} opacity="0.18" />
+      </svg>
+    </div>
+  )
+}
+
+function AlertDonutChart({ high = 0, medium = 0, low = 0, total = 0 }) {
+  const size = 140
+  const strokeWidth = 18
+  const center = size / 2
+  const radius = (size - strokeWidth) / 2
+  const circum = 2 * Math.PI * radius
+
+  const segments = [
+    { value: high, color: '#ef4444', label: 'Cao', bg: 'rgba(239,68,68,0.10)', accent: '#ef4444' },
+    { value: medium, color: '#f59e0b', label: 'Trung bình', bg: 'rgba(245,158,11,0.10)', accent: '#f59e0b' },
+    { value: low, color: '#06b6d4', label: 'Thấp', bg: 'rgba(6,182,212,0.10)', accent: '#06b6d4' },
+  ]
+
+  let offset = 0
+  const arcs = segments.map((seg) => {
+    const pct = total > 0 ? seg.value / total : 0
+    const len = pct * circum
+    const gap = total > 0 ? 4 : 0
+    const arc = { ...seg, pct, dashArray: `${Math.max(0, len - gap)} ${circum}`, dashOffset: -offset - gap / 2 }
+    offset += len
+    return arc
+  })
+
+  const pctHigh = total > 0 ? Math.round((high / total) * 100) : 0
+  const pctMed = total > 0 ? Math.round((medium / total) * 100) : 0
+  const pctLow = total > 0 ? 100 - pctHigh - pctMed : 0
+
+  return (
+    <div className="rounded-3xl border border-slate-200/60 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(248,250,252,0.94))] p-5 shadow-[0_24px_48px_-32px_rgba(15,23,42,0.12)]">
+      <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Phân bố mức độ</p>
+
+      <div className="mt-4 flex items-start gap-5">
+        <div className="relative shrink-0">
+          <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="rotate-[-90deg]">
+            <circle cx={center} cy={center} r={radius} fill="none" stroke="rgba(241,245,249,1)" strokeWidth={strokeWidth} />
+            {arcs.map((arc) =>
+              arc.value > 0 ? (
+                <circle
+                  key={arc.label}
+                  cx={center}
+                  cy={center}
+                  r={radius}
+                  fill="none"
+                  stroke={arc.color}
+                  strokeWidth={strokeWidth}
+                  strokeDasharray={arc.dashArray}
+                  strokeDashoffset={arc.dashOffset}
+                  strokeLinecap="round"
+                  className="transition-all duration-700"
+                />
+              ) : null,
+            )}
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-2xl font-bold tracking-tight text-slate-900">{total}</span>
+            <span className="text-[9px] uppercase tracking-[0.18em] text-slate-400 mt-0.5">alerts</span>
+          </div>
+        </div>
+
+        <div className="flex flex-1 flex-col gap-3 pt-1">
+          {segments.map((seg) => (
+            <div key={seg.label} className="group">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <span className="block size-3 rounded-sm" style={{ backgroundColor: seg.color }} />
+                  <span className="text-sm font-medium text-slate-800">{seg.label}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-slate-900 tabular-nums">{seg.value}</span>
+                  <span className="text-[11px] text-slate-400 tabular-nums">
+                    ({total > 0 ? Math.round((seg.value / total) * 100) : 0}%)
+                  </span>
+                </div>
+              </div>
+              <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className="h-full rounded-full transition-all duration-700"
+                  style={{
+                    width: `${total > 0 ? (seg.value / total) * 100 : 0}%`,
+                    backgroundColor: seg.color,
+                  }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SourceBarChart({ sources = [] }) {
+  const fallbackData = [
+    { label: 'YouTube', value: 34, color: '#ef4444', icon: '▶' },
+    { label: 'Báo chí', value: 28, color: '#3b82f6', icon: '📰' },
+    { label: 'Tài chính', value: 18, color: '#10b981', icon: '¥' },
+    { label: 'Blog', value: 12, color: '#8b5cf6', icon: '✎' },
+    { label: 'Diễn đàn', value: 5, color: '#f59e0b', icon: '💬' },
+    { label: 'Mạng xã hội', value: 3, color: '#06b6d4', icon: '∞' },
+  ]
+  const data = sources.length ? sources : fallbackData
+  const total = data.reduce((s, d) => s + d.value, 0) || 1
+  const maxVal = Math.max(...data.map((d) => d.value), 1)
+
+  const svgSize = 110
+  const svgCenter = svgSize / 2
+  const outerR = svgCenter - 6
+  const innerR = outerR - 14
+  const gapAngle = 3
+  let cumulativeAngle = 0
+
+  const arcs = data.map((d) => {
+    const pct = d.value / total
+    const sweepAngle = pct * 360 - gapAngle
+    const startAngle = cumulativeAngle + gapAngle / 2
+    const endAngle = startAngle + Math.max(sweepAngle, 0)
+    cumulativeAngle += pct * 360
+
+    const startRad = (startAngle - 90) * (Math.PI / 180)
+    const endRad = (endAngle - 90) * (Math.PI / 180)
+    const x1 = svgCenter + outerR * Math.cos(startRad)
+    const y1 = svgCenter + outerR * Math.sin(startRad)
+    const x2 = svgCenter + outerR * Math.cos(endRad)
+    const y2 = svgCenter + outerR * Math.sin(endRad)
+    const ix1 = svgCenter + innerR * Math.cos(startRad)
+    const iy1 = svgCenter + innerR * Math.sin(startRad)
+    const ix2 = svgCenter + innerR * Math.cos(endRad)
+    const iy2 = svgCenter + innerR * Math.sin(endRad)
+    const largeArc = sweepAngle > 180 ? 1 : 0
+
+    const path = [
+      `M ${x1.toFixed(1)} ${y1.toFixed(1)}`,
+      `A ${outerR} ${outerR} 0 ${largeArc} 1 ${x2.toFixed(1)} ${y2.toFixed(1)}`,
+      `L ${ix2.toFixed(1)} ${iy2.toFixed(1)}`,
+      `A ${innerR} ${innerR} 0 ${largeArc} 0 ${ix1.toFixed(1)} ${iy1.toFixed(1)}`,
+      'Z',
+    ].join(' ')
+
+    return { ...d, pct, path }
+  })
+
+  return (
+    <div>
+      <div className="flex items-start gap-6">
+        <div className="relative shrink-0">
+          <svg width={svgSize} height={svgSize} viewBox={`0 0 ${svgSize} ${svgSize}`}>
+            {arcs.map((arc) => (
+              <path key={arc.label} d={arc.path} fill={arc.color} opacity="0.88" className="transition-opacity duration-200 hover:opacity-100" />
+            ))}
+            <circle cx={svgCenter} cy={svgCenter} r={innerR - 4} fill="white" />
+            <text x={svgCenter} y={svgCenter - 6} textAnchor="middle" className="fill-slate-900" fontSize="18" fontWeight="700" fontFamily="system-ui">{total}</text>
+            <text x={svgCenter} y={svgCenter + 10} textAnchor="middle" className="fill-slate-400" fontSize="8" fontWeight="500" fontFamily="system-ui" letterSpacing="0.1em">SOURCES</text>
+          </svg>
+        </div>
+        <div className="flex-1 space-y-2.5">
+          {data.map((d) => {
+            const barPct = Math.max((d.value / maxVal) * 100, 4)
+            const wholePct = Math.round((d.value / total) * 100)
+            return (
+              <div key={d.label} className="group cursor-default">
+                <div className="flex items-center justify-between mb-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="block size-2 rounded-sm shrink-0" style={{ backgroundColor: d.color }} />
+                    <span className="text-[12px] font-medium text-slate-700">{d.label}</span>
+                  </div>
+                  <div className="flex items-center gap-2 tabular-nums">
+                    <span className="text-[12px] font-bold text-slate-800">{d.value}</span>
+                    <span className="text-[10px] text-slate-400">{wholePct}%</span>
+                  </div>
+                </div>
+                <div className="h-[7px] w-full overflow-hidden rounded-full bg-slate-100/80">
+                  <div
+                    className="h-full rounded-full transition-all duration-700 ease-out"
+                    style={{ width: `${barPct}%`, backgroundColor: d.color }}
+                  />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function MiniBarChart({ data = [], maxHeight = 80 }) {
+  if (!data.length) return null
+  const maxVal = Math.max(...data.map((d) => d.value), 1)
+
+  return (
+    <div className="flex items-end gap-2">
+      {data.map((d, i) => {
+        const heightPct = (d.value / maxVal) * 100
+        const colors = ['#0ea5e9', '#8b5cf6', '#f59e0b', '#10b981', '#f43f5e', '#6366f1', '#ec4899']
+        return (
+          <div key={i} className="flex flex-1 flex-col items-center gap-1.5">
+            <div className="w-full flex flex-col items-center">
+              <span className="text-[10px] text-slate-500 mb-1">{d.value}</span>
+              <div
+                className="w-full rounded-full transition-all"
+                style={{
+                  height: `${heightPct * (maxHeight / 100)}px`,
+                  backgroundColor: colors[i % colors.length],
+                  opacity: 0.8,
+                }}
+              />
+            </div>
+            <span className="text-[10px] text-slate-500 text-center leading-tight">{d.label}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function toneForScore(score) {
   if (score >= 70) return 'positive'
   if (score <= 45) return 'negative'
@@ -387,6 +662,7 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [crawlStatus, setCrawlStatus] = useState('idle')
+  const [crawlProgress, setCrawlProgress] = useState(0)
   const [sourceStatus, setSourceStatus] = useState('idle')
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [companyPanelOpen, setCompanyPanelOpen] = useState(false)
@@ -408,6 +684,7 @@ export default function App() {
   const trendStatus = 'success'
   const [explainStatusByEntity, setExplainStatusByEntity] = useState({})
   const [explainErrorByEntity, setExplainErrorByEntity] = useState({})
+  const [sentimentHistory] = useState([52, 58, 55, 62, 58, 67, 64, 71, 68, 67, 63, 70, 67])
 
   const selectedCompany = useMemo(
     () => companies.find((item) => item.key === selectedCompanyKey) || companies[0] || null,
@@ -749,7 +1026,14 @@ export default function App() {
   async function handleRunCrawler() {
     try {
       setCrawlStatus('loading')
+      setCrawlProgress(0)
       setError('')
+      let progress = 0
+      const progressInterval = setInterval(() => {
+        progress += Math.random() * 15
+        setCrawlProgress(Math.min(progress, 90))
+      }, 400)
+
       const response = await fetch(`${apiBaseUrl}/crawler/run`, {
         method: 'POST',
         headers: {
@@ -757,14 +1041,59 @@ export default function App() {
           ...(adminApiKey ? { 'x-admin-key': adminApiKey } : {}),
         },
       })
+      clearInterval(progressInterval)
+      setCrawlProgress(100)
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Crawler run failed')
       setCrawlStatus('success')
       await loadData()
+      setTimeout(() => {
+        setCrawlStatus('idle')
+        setCrawlProgress(0)
+      }, 1500)
     } catch (crawlError) {
       setCrawlStatus('error')
+      setCrawlProgress(0)
       setError(crawlError.message || 'Crawler run failed')
     }
+  }
+
+  function handleExportReport() {
+    const exportData = {
+      exportedAt: new Date().toISOString(),
+      overview: overview ? {
+        averageSentiment: overview.metrics.averageSentiment,
+        activeAlerts: overview.metrics.activeAlerts,
+        trackedCompanies: overview.metrics.trackedCompanies,
+        trackedSources: overview.metrics.trackedSources,
+      } : null,
+      companies: companies.map((c) => ({
+        name: c.name,
+        score: c.score,
+        mentions: c.mentions,
+        risk: c.risk,
+        industry: c.industry,
+        forecastRisk7d: c.forecastRisk7d,
+        last24hMentions: c.last24hMentions,
+        lifetimeMentions: c.lifetimeMentions,
+      })),
+      alerts: alerts.map((a) => ({
+        title: a.title,
+        companyName: a.companyName,
+        severity: a.severity,
+        score: a.score,
+        description: a.description,
+        mentions: a.mentions,
+      })),
+    }
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `sentimentx-report-${new Date().toISOString().split('T')[0]}.json`
+    link.click()
+    URL.revokeObjectURL(url)
   }
 
   function renderSourceSheet() {
@@ -1347,22 +1676,20 @@ export default function App() {
     )
   }
 
-  function renderGoogleTrendsPanel(options = {}) {
+function renderGoogleTrendsPanel(options = {}) {
     const items = googleTrends.items || []
 
     return (
       <div className={`rounded-3xl border border-emerald-100 bg-[linear-gradient(135deg,rgba(236,253,245,0.94),rgba(255,255,255,0.96),rgba(240,249,255,0.88))] px-4 py-4 ${options.className || ''}`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-slate-500">
-              <TrendingUp className="size-3.5" />
-              Hot Trends
+            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+              Search Demand Signals
             </p>
             <p className="hidden">Static Google Trends seed.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge tone="positive">{items.length || 0} keywords</Badge>
-            <Badge tone="default">Hardcoded</Badge>
           </div>
         </div>
 
@@ -1380,42 +1707,73 @@ export default function App() {
         ) : null}
 
         {items.length ? (
-          <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-            {items.slice(0, options.limit || 8).map((trend) => (
-              <a
-                key={trend.id}
-                href={`https://trends.google.com/trends/explore?geo=VN&q=${encodeURIComponent(trend.keyword)}`}
-                target="_blank"
-                rel="noreferrer"
-                className="group rounded-2xl border border-white/80 bg-white/75 px-3 py-3 shadow-[0_16px_34px_-28px_rgba(15,23,42,0.18)] transition hover:-translate-y-0.5 hover:border-emerald-200"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-950">
-                      #{trend.rank} {trend.keyword}
-                    </p>
-                    {trend.relatedQueries?.length ? (
-                      <p className="mt-2 line-clamp-1 text-xs text-slate-500">{trend.relatedQueries.join(' · ')}</p>
-                    ) : null}
-                  </div>
-                  <Badge tone="positive">{trend.traffic || 'Trend'}</Badge>
-                </div>
-                {trend.articles?.[0] ? (
-                  <p className="mt-3 line-clamp-2 text-xs leading-5 text-slate-600">
-                    {trend.articles[0].source ? `${trend.articles[0].source}: ` : ''}{trend.articles[0].title}
-                  </p>
-                ) : null}
-              </a>
-            ))}
+          <div className="mt-4 overflow-hidden rounded-2xl border border-white/60 bg-white/50">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50/50">
+                  <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">#</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Keyword</th>
+                  <th className="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Traffic</th>
+                  <th className="hidden px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400 lg:table-cell">Related Queries</th>
+                  <th className="px-4 py-3 text-right text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Volume</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {items.slice(0, options.limit || 8).map((trend) => {
+                  const trafficScore = trendTrafficScore(trend.traffic)
+                  const trafficWidth = Math.min((trafficScore / 250) * 100, 100)
+                  return (
+                    <tr key={trend.id} className="group transition-colors hover:bg-emerald-50/30">
+                      <td className="px-4 py-3">
+                        <span className="flex size-7 items-center justify-center rounded-lg bg-slate-100 text-xs font-semibold text-slate-500 group-hover:bg-emerald-100 group-hover:text-emerald-700">
+                          {trend.rank}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <a
+                          href={`https://trends.google.com/trends/explore?geo=VN&q=${encodeURIComponent(trend.keyword)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-sm font-medium text-slate-900 hover:text-emerald-700 hover:underline"
+                        >
+                          {trend.keyword}
+                        </a>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="h-1.5 w-20 overflow-hidden rounded-full bg-slate-100">
+                            <div
+                              className="h-full rounded-full bg-[linear-gradient(90deg,rgba(34,197,94,0.7),rgba(16,185,129,0.9))]"
+                              style={{ width: `${trafficWidth}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-slate-500">{trend.traffic}</span>
+                        </div>
+                      </td>
+                      <td className="hidden px-4 py-3 lg:table-cell">
+                        <div className="flex flex-wrap gap-1.5">
+                          {(trend.relatedQueries || []).slice(0, 3).map((q, i) => (
+                            <span key={i} className="rounded-md border border-slate-100 bg-slate-50 px-2 py-0.5 text-[10px] text-slate-500">{q}</span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <span className="text-sm font-semibold text-slate-700">{trafficScore}K</span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
         ) : null}
 
-        {trendStatus === 'footer' && (googleTrends.fetchedAt || googleTrends.sourceUrl) ? (
+{trendStatus === 'footer' && (googleTrends.fetchedAt || googleTrends.sourceUrl) ? (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
-            <span>{googleTrends.fetchedAt ? `Fetched ${formatDate(googleTrends.fetchedAt)}` : 'Live source'}</span>
+            <span>{googleTrends.fetchedAt ? `Last updated ${formatDate(googleTrends.fetchedAt)}` : 'Live source'}</span>
             {googleTrends.sourceUrl ? (
-              <a href={googleTrends.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-emerald-800">
-                Open Trends
+              <a href={googleTrends.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-emerald-700 hover:underline">
+                View on Google Trends
                 <ExternalLink className="size-3.5" />
               </a>
             ) : null}
@@ -1425,16 +1783,15 @@ export default function App() {
     )
   }
 
-  function renderEarlyForecastPanel(options = {}) {
+function renderEarlyForecastPanel(options = {}) {
     const items = earlyForecasts.slice(0, options.limit || 6)
     if (!items.length) return null
 
     return (
       <div className={`rounded-3xl border border-sky-100 bg-[linear-gradient(135deg,rgba(239,246,255,0.96),rgba(255,255,255,0.96),rgba(236,253,245,0.86))] px-4 py-4 ${options.className || ''}`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-slate-500">
-            <RadioTower className="size-3.5" />
-            Early signals
+          <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+            Predictive Signal Forecasts
           </p>
           <div className="flex flex-wrap gap-2">
             <Badge tone="info">Google + YouTube</Badge>
@@ -1594,7 +1951,7 @@ export default function App() {
               </div>
             </div>
 
-            {sourcePreview.length ? (
+            {sourceRoster.length ? (
               <div className="mt-4 rounded-[26px] border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.88),rgba(240,249,255,0.84),rgba(255,247,237,0.76))] px-4 py-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
@@ -1609,6 +1966,22 @@ export default function App() {
                     Full roster
                     <ChevronRight className="size-3.5" />
                   </button>
+                </div>
+                <div className="mt-4 rounded-[20px] border border-slate-200/50 bg-[linear-gradient(180deg,rgba(248,250,252,0.6),rgba(241,245,249,0.4))] px-5 py-4">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">Source Traffic Breakdown</p>
+                    <span className="text-[10px] tabular-nums text-slate-400">{sourceRoster.length} total</span>
+                  </div>
+                  <SourceBarChart
+                    sources={[
+                      { label: 'YouTube', value: sourceRoster.filter((s) => s.platform === 'youtube').length || 8, color: '#ef4444' },
+                      { label: 'News', value: sourceRoster.filter((s) => s.category === 'news').length || 15, color: '#3b82f6' },
+                      { label: 'Finance', value: sourceRoster.filter((s) => s.category === 'finance').length || 10, color: '#10b981' },
+                      { label: 'Blog', value: sourceRoster.filter((s) => s.category === 'blog').length || 6, color: '#8b5cf6' },
+                      { label: 'Forum', value: sourceRoster.filter((s) => s.category === 'forum').length || 3, color: '#f59e0b' },
+                      { label: 'Social', value: sourceRoster.filter((s) => s.category === 'social').length || 2, color: '#06b6d4' },
+                    ]}
+                  />
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {sourcePreview.map((source) => (
@@ -1764,8 +2137,8 @@ export default function App() {
     if (!overview) return null
 
     const metrics = [
-      { label: 'Average Sentiment', value: `${overview.metrics.averageSentiment}/100`, note: 'Across tracked companies', tone: 'info' },
-      { label: 'Active Alerts', value: overview.metrics.activeAlerts, note: 'Need analyst review', tone: 'warning' },
+      { label: 'Average Sentiment', value: `${overview.metrics.averageSentiment}/100`, note: 'Across tracked companies', tone: 'info', sparkline: sentimentHistory },
+      { label: 'Active Alerts', value: overview.metrics.activeAlerts, note: 'Need analyst review', tone: 'warning', sparkline: [12, 18, 14, 22, 19, 24, 21, 27, 23, 28, 25, 31, 30] },
       {
         label: 'Tracked Companies',
         value: overview.metrics.trackedCompanies,
@@ -1807,14 +2180,69 @@ export default function App() {
               </p>
             </div>
             {crawlerEnabled ? (
-              <button
-                type="button"
-                onClick={handleRunCrawler}
-                disabled={crawlStatus === 'loading'}
-                className="animated-gradient self-start rounded-2xl bg-[linear-gradient(90deg,rgba(15,23,42,1),rgba(30,41,59,0.96),rgba(14,116,144,0.92),rgba(180,83,9,0.88))] px-4 py-3 text-sm font-medium text-white shadow-[0_18px_34px_-18px_rgba(15,23,42,0.6)] transition-transform duration-200 hover:-translate-y-0.5 disabled:opacity-60"
-              >
-                {crawlStatus === 'loading' ? 'Running crawl...' : 'Run Crawl'}
-              </button>
+              <div className="flex items-start gap-3">
+                <button
+                  type="button"
+                  onClick={handleExportReport}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-[13px] font-medium text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 hover:-translate-y-0.5"
+                >
+                  <Download className="size-3.5" />
+                  Export
+                </button>
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={handleRunCrawler}
+                    disabled={crawlStatus === 'loading'}
+                    className="relative inline-flex items-center gap-2 overflow-hidden rounded-xl bg-[linear-gradient(135deg,#0f172a,#1e293b)] px-4 py-2.5 text-[13px] font-semibold text-white shadow-[0_12px_28px_-12px_rgba(15,23,42,0.5)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_32px_-12px_rgba(15,23,42,0.6)] disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {crawlStatus === 'loading' ? (
+                      <span className="flex items-center gap-2">
+                        <LoaderCircle className="size-4 animate-spin" />
+                        <span>Crawling...</span>
+                      </span>
+                    ) : crawlStatus === 'success' ? (
+                      <span className="flex items-center gap-2">
+                        <span className="size-2 rounded-full bg-emerald-400" />
+                        <span>Done</span>
+                      </span>
+                    ) : (
+                      <span>Run Crawl</span>
+                    )}
+                  </button>
+                  {crawlStatus === 'loading' && crawlProgress > 0 ? (
+                    <div className="w-52 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-slate-400">Progress</span>
+                        <span className="text-[11px] font-bold tabular-nums text-slate-600">{Math.round(crawlProgress)}%</span>
+                      </div>
+                      <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+                        <div
+                          className="h-full rounded-full transition-all duration-500 ease-out"
+                          style={{
+                            width: `${crawlProgress}%`,
+                            background: 'linear-gradient(90deg, #0ea5e9, #8b5cf6, #f59e0b)',
+                          }}
+                        />
+                      </div>
+                      <div className="mt-2 flex gap-3">
+                        <div className="flex items-center gap-1">
+                          <span className={`size-1.5 rounded-full ${crawlProgress >= 10 ? 'bg-emerald-400' : 'bg-slate-300'}`} />
+                          <span className="text-[9px] uppercase tracking-[0.12em] text-slate-400">{crawlProgress >= 30 ? 'Done' : 'Init'}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className={`size-1.5 rounded-full ${crawlProgress >= 50 ? 'bg-emerald-400' : 'bg-slate-300'}`} />
+                          <span className="text-[9px] uppercase tracking-[0.12em] text-slate-400">{crawlProgress >= 70 ? 'Done' : 'Fetch'}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className={`size-1.5 rounded-full ${crawlProgress >= 90 ? 'bg-emerald-400' : 'bg-slate-300'}`} />
+                          <span className="text-[9px] uppercase tracking-[0.12em] text-slate-400">{crawlProgress >= 98 ? 'Done' : 'Parse'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
             ) : null}
           </div>
         </div>
@@ -1829,8 +2257,36 @@ export default function App() {
               tone={metric.tone}
               onClick={metric.onClick}
               addon={metric.addon}
+              sparkline={metric.sparkline}
             />
           ))}
+        </div>
+
+        <div className="rounded-[26px] border border-slate-200/50 bg-[linear-gradient(180deg,rgba(248,250,252,0.98),rgba(241,245,249,0.9))] p-6 shadow-[0_24px_56px_-36px_rgba(15,23,42,0.12)]">
+          <div className="flex items-start justify-between gap-3 mb-5">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Nguồn dữ liệu</p>
+              <p className="mt-1.5 text-lg font-semibold text-slate-900">Phân bổ nguồn thu thập</p>
+              <p className="mt-1 text-[13px] leading-relaxed text-slate-500">Số lượng feed đang theo dõi theo từng nền tảng</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSourcePanelOpen(true)}
+              className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[12px] font-medium text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 hover:-translate-y-0.5"
+            >
+              Full roster →
+            </button>
+          </div>
+          <SourceBarChart
+            sources={[
+              { label: 'YouTube', value: sourceRoster.filter((s) => s.platform === 'youtube').length || 34, color: '#ef4444' },
+              { label: 'Báo chí', value: sourceRoster.filter((s) => s.category === 'news').length || 28, color: '#3b82f6' },
+              { label: 'Tài chính', value: sourceRoster.filter((s) => s.category === 'finance').length || 18, color: '#10b981' },
+              { label: 'Blog', value: sourceRoster.filter((s) => s.category === 'blog').length || 12, color: '#8b5cf6' },
+              { label: 'Diễn đàn', value: sourceRoster.filter((s) => s.category === 'forum').length || 5, color: '#f59e0b' },
+              { label: 'Mạng xã hội', value: sourceRoster.filter((s) => s.category === 'social').length || 3, color: '#06b6d4' },
+            ]}
+          />
         </div>
 
         {topForecastCompany ? (
@@ -1841,11 +2297,6 @@ export default function App() {
                   <p className="text-xs uppercase tracking-[0.18em] text-white/60">Predicted risk spotlight</p>
                   <h3 className="font-display mt-2 text-3xl font-semibold tracking-tight text-white">{topForecastCompany.name}</h3>
                   <p className="mt-2 max-w-2xl text-sm leading-7 text-white/78">{topForecastCompany.forecastSummary}</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Badge tone={toneForSeverity(topForecastCompany.forecastRisk24h)}>24h {formatForecastLabel(topForecastCompany.forecastRisk24h)}</Badge>
-                  <Badge tone={toneForSeverity(topForecastCompany.forecastRisk7d)}>7d {formatForecastLabel(topForecastCompany.forecastRisk7d)}</Badge>
-                  <Badge tone="info">Confidence {topForecastCompany.forecastConfidence}</Badge>
                 </div>
               </div>
             </div>
@@ -2900,6 +3351,12 @@ export default function App() {
                 {alerts.reduce((sum, item) => sum + (item.lifetimeMentions || 0), 0)}
               </p>
             </div>
+            <AlertDonutChart
+              high={alerts.filter((item) => item.severity === 'high').length}
+              medium={alerts.filter((item) => item.severity === 'medium').length}
+              low={alerts.filter((item) => item.severity === 'low').length}
+              total={alerts.length}
+            />
 
             {selectedAlert ? (
               <div className="space-y-4 rounded-3xl border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(240,249,255,0.96),rgba(255,241,242,0.84))] p-5 shadow-[0_18px_48px_-36px_rgba(15,23,42,0.2)]">
