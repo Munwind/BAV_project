@@ -13,6 +13,7 @@ const { getTrackedCompanies, getAlerts, getOverview, explainCompanyScoreOnDemand
 const { findCompanyEntityByText } = require('./services/entity-service')
 const { searchAll } = require('./services/search-service')
 const { getGoogleDailyTrends } = require('./services/google-trends-service')
+const { getMarketSnapshot } = require('./services/market-service')
 
 const app = express()
 
@@ -185,6 +186,19 @@ app.get('/api/search', async (req, res, next) => {
       query: q,
       ...results,
     })
+  } catch (error) {
+    next(error)
+  }
+})
+
+app.get('/api/market/snapshot', async (req, res, next) => {
+  try {
+    const payload = await getMarketSnapshot({
+      symbols: req.query.symbols,
+      interval: req.query.interval,
+      range: req.query.range,
+    })
+    res.json(payload)
   } catch (error) {
     next(error)
   }

@@ -1,4 +1,4 @@
-﻿ import { useCallback, useEffect, useMemo, useState } from 'react'
+ import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Bot,
   BarChart3,
@@ -28,14 +28,14 @@ const nav = [
 ]
 
 const STATIC_GOOGLE_TRENDS = [
-  { keyword: 'gia vang hom nay', traffic: '200K+', relatedQueries: ['SJC', '9999', 'ty gia USD'] },
-  { keyword: 'chung khoan Viet Nam', traffic: '100K+', relatedQueries: ['VN-Index', 'co phieu ngan hang'] },
-  { keyword: 'lai suat ngan hang', traffic: '50K+', relatedQueries: ['gui tiet kiem', 'vay mua nha'] },
-  { keyword: 'xang dau', traffic: '50K+', relatedQueries: ['gia xang', 'Petrolimex'] },
-  { keyword: 'bat ong san', traffic: '20K+', relatedQueries: ['at nen', 'chung cu'] },
-  { keyword: 'ty gia USD', traffic: '20K+', relatedQueries: ['VND', 'ngan hang'] },
-  { keyword: 'du lich he', traffic: '20K+', relatedQueries: ['ve may bay', 'khach san'] },
-  { keyword: 'AI doanh nghiep', traffic: '10K+', relatedQueries: ['tu ong hoa', 'chatbot'] },
+  { keyword: 'giÃ¡ vÃ ng hÃ´m nay', traffic: '200K+', relatedQueries: ['SJC', '9999', 'tá»· giÃ¡ USD'] },
+  { keyword: 'chá»©ng khoÃ¡n Viá»‡t Nam', traffic: '100K+', relatedQueries: ['VN-Index', 'cá»• phiáº¿u ngÃ¢n hÃ ng'] },
+  { keyword: 'lÃ£i suáº¥t ngÃ¢n hÃ ng', traffic: '50K+', relatedQueries: ['gá»­i tiáº¿t kiá»‡m', 'vay mua nhÃ '] },
+  { keyword: 'xÄƒng dáº§u', traffic: '50K+', relatedQueries: ['giÃ¡ xÄƒng', 'Petrolimex'] },
+  { keyword: 'báº¥t Ä‘á»™ng sáº£n', traffic: '20K+', relatedQueries: ['Ä‘áº¥t ná»n', 'chung cÆ°'] },
+  { keyword: 'tá»· giÃ¡ USD', traffic: '20K+', relatedQueries: ['VND', 'ngÃ¢n hÃ ng'] },
+  { keyword: 'du lá»‹ch hÃ¨', traffic: '20K+', relatedQueries: ['vÃ© mÃ¡y bay', 'khÃ¡ch sáº¡n'] },
+  { keyword: 'AI doanh nghiá»‡p', traffic: '10K+', relatedQueries: ['tá»± Ä‘á»™ng hÃ³a', 'chatbot'] },
 ].map((item, index) => ({
   ...item,
   id: `static-trend-${index + 1}`,
@@ -47,43 +47,43 @@ const TREND_FORECAST_RULES = [
   {
     match: ['gia vang', 'sjc', '9999'],
     theme: 'Gold demand',
-    forecast: 'Gold demand may spill over to retail gold names and banking stocks.',
-    action: 'Track PNJ, SJC, and banking names',
+    forecast: 'Nhu cáº§u vÃ ng cÃ³ thá»ƒ kÃ©o attention sang nhÃ³m bÃ¡n láº» vÃ ng vÃ  ngÃ¢n hÃ ng.',
+    action: 'Theo dÃµi PNJ, SJC vÃ  nhÃ³m ngÃ¢n hÃ ng',
     impact: 'high',
   },
   {
     match: ['chung khoan', 'vn-index', 'co phieu', 'ngan hang'],
     theme: 'Market trading',
-    forecast: 'Rising stock-search demand is likely to increase discussion on equities and banks.',
-    action: 'Prioritize financial coverage',
+    forecast: 'DÃ²ng tÃ¬m kiáº¿m chá»©ng khoÃ¡n tÄƒng, xÃ¡c suáº¥t tháº£o luáº­n cá»• phiáº¿u/ngÃ¢n hÃ ng nÃ³ng lÃªn.',
+    action: 'Æ¯u tiÃªn coverage tÃ i chÃ­nh',
     impact: 'high',
   },
   {
     match: ['lai suat', 'gui tiet kiem', 'vay mua nha'],
     theme: 'Rate sensitivity',
-    forecast: 'Rates remain a pain point, creating new sentiment around banks and real estate.',
-    action: 'Theo doi ngan hang va bat ong san',
+    forecast: 'LÃ£i suáº¥t Ä‘ang lÃ  pain-point, dá»… táº¡o sentiment má»›i quanh ngÃ¢n hÃ ng vÃ  báº¥t Ä‘á»™ng sáº£n.',
+    action: 'Theo dÃµi ngÃ¢n hÃ ng vÃ  báº¥t Ä‘á»™ng sáº£n',
     impact: 'medium',
   },
   {
     match: ['xang dau', 'gia xang', 'petrolimex'],
     theme: 'Fuel price',
-    forecast: 'Fuel-price moves can drive discussion on operating costs, logistics, and retail.',
-    action: 'Track fuel-linked companies',
+    forecast: 'GiÃ¡ xÄƒng cÃ³ thá»ƒ Ä‘áº©y tháº£o luáº­n vá» chi phÃ­ váº­n hÃ nh, logistics vÃ  bÃ¡n láº».',
+    action: 'Theo dÃµi doanh nghiá»‡p liÃªn quan xÄƒng dáº§u',
     impact: 'medium',
   },
   {
     match: ['bat dong san', 'dat nen', 'chung cu'],
     theme: 'Real estate',
-    forecast: 'A real-estate rebound may rotate volume into investment, banking, and materials themes.',
-    action: 'Ra soat watchlist bat ong san',
+    forecast: 'Báº¥t Ä‘á»™ng sáº£n nÃ³ng láº¡i cÃ³ thá»ƒ kÃ©o volume sang chá»§ Ä‘á» Ä‘áº§u tÆ°, ngÃ¢n hÃ ng vÃ  váº­t liá»‡u.',
+    action: 'RÃ  soÃ¡t watchlist báº¥t Ä‘á»™ng sáº£n',
     impact: 'medium',
   },
   {
     match: ['ai doanh nghiep', 'automation', 'chatbot'],
     theme: 'Enterprise AI',
-    forecast: 'Enterprise AI is gaining attention, suitable for tracking vendors, digital banking, and automation.',
-    action: 'Add AI-related keywords',
+    forecast: 'AI doanh nghiá»‡p tÄƒng attention, phÃ¹ há»£p Ä‘á»ƒ theo dÃµi vendor, ngÃ¢n hÃ ng sá»‘ vÃ  automation.',
+    action: 'Bá»• sung keyword liÃªn quan AI',
     impact: 'low',
   },
 ]
@@ -98,14 +98,6 @@ const MARKET_SYMBOLS = [
   { symbol: 'MWG', providerSymbol: 'MWG.VN', name: 'Mobile World', exchange: 'HOSE' },
 ]
 
-function normalizeProviderSymbol(value) {
-  return String(value || '').trim().toUpperCase()
-}
-
-function normalizeTicker(value) {
-  return normalizeProviderSymbol(value).replace(/\.VN$/, '')
-}
-
 const MARKET_CAP_BY_SYMBOL = {
   VIC: 262000000000000,
   VNM: 138000000000000,
@@ -118,7 +110,7 @@ const MARKET_CAP_BY_SYMBOL = {
 
 function formatVnd(value) {
   if (!Number.isFinite(value)) return '--'
-  return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(value)} `
+  return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(value)} Ä‘`
 }
 
 function formatCompact(value) {
@@ -186,8 +178,8 @@ function buildTrendForecast(trend) {
     source: 'Google',
     theme: rule?.theme || 'Search spike',
     signal: trend.keyword,
-    forecast: rule?.forecast || 'Search interest is accelerating; monitor whether momentum spreads to news and YouTube comments.',
-    action: rule?.action || 'Theo dAi entity liAan quan',
+    forecast: rule?.forecast || 'Keyword Ä‘ang tÄƒng tÃ¬m kiáº¿m, nÃªn theo dÃµi xem cÃ³ lan sang news hoáº·c YouTube comments khÃ´ng.',
+    action: rule?.action || 'Theo dÃµi entity liÃªn quan',
     confidence,
     impact: rule?.impact || (confidence >= 78 ? 'high' : confidence >= 64 ? 'medium' : 'low'),
     tone: rule?.impact === 'high' ? 'negative' : rule?.impact === 'medium' ? 'warning' : 'info',
@@ -219,9 +211,9 @@ function buildYoutubeForecast(companies = []) {
     signal: leader.company.name,
     forecast:
       leader.youtube.negativeShare >= 35
-        ? 'YouTube comments are skewing negative; early alerts may appear before mainstream news.'
-        : 'YouTube comment volume is notable; monitor sentiment shifts over the next 24h.',
-    action: 'M company detail v  baom Explain',
+        ? 'YouTube comments Ä‘ang nghiÃªng tiÃªu cá»±c, dá»… xuáº¥t hiá»‡n alert sá»›m trÆ°á»›c news chÃ­nh thá»‘ng.'
+        : 'YouTube comments cÃ³ volume Ä‘Ã¡ng chÃº Ã½, nÃªn theo dÃµi chuyá»ƒn dá»‹ch sentiment trong 24h.',
+    action: 'Má»Ÿ company detail vÃ  báº¥m Explain',
     confidence: Math.min(92, 58 + Number(leader.youtube.mentions || 0) * 3 + Math.round(Number(leader.youtube.negativeShare || 0) / 3)),
     impact: leader.youtube.negativeShare >= 35 ? 'high' : 'medium',
     tone: leader.youtube.negativeShare >= 35 ? 'negative' : 'warning',
@@ -447,7 +439,7 @@ function AlertDonutChart({ high = 0, medium = 0, low = 0, total = 0 }) {
   const segments = [
     { value: high, color: '#fb7185', label: 'Cao', bg: 'rgba(251,113,133,0.10)', accent: '#fb7185' },
     { value: medium, color: '#f59e0b', label: 'Trung bnh', bg: 'rgba(245,158,11,0.10)', accent: '#f59e0b' },
-    { value: low, color: '#8fd6a5', label: 'Thaop', bg: 'rgba(143,214,165,0.10)', accent: '#8fd6a5' },
+    { value: low, color: '#8fd6a5', label: 'Tháº¥p', bg: 'rgba(143,214,165,0.10)', accent: '#8fd6a5' },
   ]
 
   let offset = 0
@@ -462,7 +454,7 @@ function AlertDonutChart({ high = 0, medium = 0, low = 0, total = 0 }) {
 
   return (
     <div className="rounded-3xl border border-slate-200/60 bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(248,250,252,0.94))] p-5 shadow-[0_24px_48px_-32px_rgba(15,23,42,0.12)]">
-      <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Severity split</p>
+      <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">PhÃ¢n bá»• má»©c Ä‘á»™</p>
 
       <div className="mt-4 flex items-start gap-5">
         <div className="relative shrink-0">
@@ -527,11 +519,11 @@ function AlertDonutChart({ high = 0, medium = 0, low = 0, total = 0 }) {
 function SourceBarChart({ sources = [] }) {
   const fallbackData = [
     { label: 'YouTube', value: 34, color: '#ef4444', icon: '?' },
-    { label: 'News', value: 28, color: '#3b82f6', icon: '??' },
-    { label: 'Finance', value: 18, color: '#10b981', icon: 'a' },
+    { label: 'BÃ¡o chÃ­', value: 28, color: '#3b82f6', icon: '??' },
+    { label: 'T i chnh', value: 18, color: '#10b981', icon: 'a' },
     { label: 'Blog', value: 12, color: '#8b5cf6', icon: '?' },
-    { label: 'Forum', value: 5, color: '#f59e0b', icon: '??' },
-    { label: 'Social', value: 3, color: '#06b6d4', icon: '8' },
+    { label: 'Diá»…n Ä‘Ã n', value: 5, color: '#f59e0b', icon: '??' },
+    { label: 'Máº¡ng xÃ£ há»™i', value: 3, color: '#06b6d4', icon: '8' },
   ]
   const data = sources.length ? sources : fallbackData
   const total = data.reduce((s, d) => s + d.value, 0) || 1
@@ -847,15 +839,12 @@ export default function App() {
   )
   const marketSeriesBySymbol = useMemo(() => {
     const byProvider = (marketSnapshot.items || []).reduce((acc, item) => {
-      const providerKey = normalizeProviderSymbol(item.providerSymbol || item.symbol)
-      const tickerKey = normalizeTicker(item.providerSymbol || item.symbol)
-      if (providerKey) acc[providerKey] = item
-      if (tickerKey) acc[tickerKey] = item
+      acc[item.providerSymbol || item.symbol] = item
       return acc
     }, {})
 
     return MARKET_SYMBOLS.reduce((acc, item) => {
-      const payload = byProvider[normalizeProviderSymbol(item.providerSymbol)] || byProvider[normalizeTicker(item.providerSymbol)]
+      const payload = byProvider[item.providerSymbol]
       if (!payload) return acc
       acc[item.symbol] = payload
       return acc
@@ -869,17 +858,14 @@ export default function App() {
   const selectedMarketQuote = useMemo(() => {
     if (!selectedMarketCandles.length) return null
     const last = selectedMarketCandles[selectedMarketCandles.length - 1]
-    const providerQuote = marketSeriesBySymbol[selectedMarketMeta.symbol]?.quote || {}
-    const prevCandle = selectedMarketCandles[selectedMarketCandles.length - 2] || null
-    const baseline = Number.isFinite(providerQuote.previousClose) && providerQuote.previousClose > 0
-      ? providerQuote.previousClose
-      : (prevCandle?.close || last.close)
-    const change = last.close - baseline
-    const changePct = baseline ? (change / baseline) * 100 : 0
+    const prev = selectedMarketCandles[selectedMarketCandles.length - 2] || last
+    const change = last.close - prev.close
+    const changePct = prev.close ? (change / prev.close) * 100 : 0
     const high = Math.max(...selectedMarketCandles.map((item) => item.high))
     const low = Math.min(...selectedMarketCandles.map((item) => item.low))
     const avgVolume = Math.round(selectedMarketCandles.reduce((sum, item) => sum + item.volume, 0) / selectedMarketCandles.length)
 
+    const providerQuote = marketSeriesBySymbol[selectedMarketMeta.symbol]?.quote || {}
     return { ...last, ...providerQuote, change, changePct, high, low, avgVolume }
   }, [selectedMarketCandles, marketSeriesBySymbol, selectedMarketMeta.symbol])
   const highRiskCompaniesCount = useMemo(
@@ -963,7 +949,7 @@ export default function App() {
         setWatchlistKeys(companiesData.items.slice(0, 3).map((item) => item.key))
       }
     } catch (loadError) {
-      setError(loadError.message || 'KhA ng th taoi da  liu')
+      setError(loadError.message || 'KhÃ´ng thá»ƒ táº£i dá»¯ liá»‡u')
     } finally {
       setLoading(false)
     }
@@ -984,7 +970,7 @@ export default function App() {
       setMarketError('')
     } catch (snapshotError) {
       setMarketStatus('error')
-      setMarketError(snapshotError.message || 'KhA ng th taoi market snapshot')
+      setMarketError(snapshotError.message || 'KhÃ´ng thá»ƒ táº£i market snapshot')
     }
   }, [getJson, marketInterval, marketRange])
 
@@ -1044,7 +1030,7 @@ export default function App() {
       setExplainStatusByEntity((current) => ({ ...current, [entityId]: 'error' }))
       setExplainErrorByEntity((current) => ({
         ...current,
-        [entityId]: explainError.message || 'KhA ng th taoo giaoi thAch score',
+        [entityId]: explainError.message || 'KhÃ´ng thá»ƒ táº¡o giáº£i thÃ­ch score',
       }))
     }
   }
@@ -1080,7 +1066,7 @@ export default function App() {
   useEffect(() => {
     const timerId = setInterval(() => {
       loadMarketSnapshot({ silent: true })
-    }, 180000)
+    }, 15000)
 
     return () => clearInterval(timerId)
   }, [loadMarketSnapshot])
@@ -1088,15 +1074,6 @@ export default function App() {
   useEffect(() => {
     setMarketOffset(0)
   }, [selectedMarketSymbol, marketInterval, marketRange])
-
-  useEffect(() => {
-    const hasSelectedData = (marketSeriesBySymbol[selectedMarketSymbol]?.candles || []).length > 0
-    if (hasSelectedData) return
-    const fallback = MARKET_SYMBOLS.find((item) => (marketSeriesBySymbol[item.symbol]?.candles || []).length > 0)
-    if (fallback && fallback.symbol !== selectedMarketSymbol) {
-      setSelectedMarketSymbol(fallback.symbol)
-    }
-  }, [marketSeriesBySymbol, selectedMarketSymbol])
 
   useEffect(() => {
     if (companyPage > totalCompanyPages) {
@@ -1367,7 +1344,7 @@ export default function App() {
               <div className="data-tile flex h-full min-h-52 items-center justify-center rounded-[28px] border border-dashed px-6 text-center">
                 <div>
                   <p className="font-display text-2xl font-semibold text-slate-950">No sources loaded</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-500">Unable to load source roster from backend in this request.</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-500">KhÃ´ng láº¥y Ä‘Æ°á»£c source roster tá»« backend á»Ÿ láº§n gá»i nÃ y.</p>
                 </div>
               </div>
             )}
@@ -1505,7 +1482,7 @@ export default function App() {
 
       const shouldUseCompanyContext = activeView === 'companies' && selectedCompany?.name
       const question = shouldUseCompanyContext
-        ? `${trimmedQuestion}\n\nCA ng ty ang ac ngai dA1ng xem chi tiaot: ${selectedCompany.name}. HAy u tiAan phAn tAch cA ng ty n y.`
+        ? `${trimmedQuestion}\n\nCÃ´ng ty Ä‘ang Ä‘Æ°á»£c ngÆ°á»i dÃ¹ng xem chi tiáº¿t: ${selectedCompany.name}. HÃ£y Æ°u tiÃªn phÃ¢n tÃ­ch cÃ´ng ty nÃ y.`
         : trimmedQuestion
       const userMessage = {
         id: `user-${Date.now()}`,
@@ -1557,7 +1534,7 @@ export default function App() {
         {
           id: `assistant-error-${Date.now()}`,
           role: 'assistant',
-          content: 'KhA ng th laoy phaon hi ta AI  thai im n y. Vui lA2ng tha laoi sau.',
+          content: 'KhÃ´ng thá»ƒ láº¥y pháº£n há»“i tá»« AI á»Ÿ thá»i Ä‘iá»ƒm nÃ y. Vui lÃ²ng thá»­ láº¡i sau.',
           references: [],
         },
       ])
@@ -1750,7 +1727,7 @@ export default function App() {
           <p className="mt-3 text-sm leading-7 text-slate-700">{scoreExplain}</p>
         ) : (
           <p className="hidden">
-            LA12 do score cha ac taoo ta ng. Baom Explain  LLM sinh giaoi thAch daa trAan evidence hin taoi.
+            LÃ½ do score chÆ°a Ä‘Æ°á»£c táº¡o tá»± Ä‘á»™ng. Báº¥m Explain Ä‘á»ƒ LLM sinh giáº£i thÃ­ch dá»±a trÃªn evidence hiá»‡n táº¡i.
           </p>
         )}
         {scoreFactors.length ? (
@@ -1852,7 +1829,7 @@ function renderGoogleTrendsPanel(options = {}) {
 
         {trendStatus === 'error' && !items.length ? (
           <div className="mt-4 rounded-2xl border border-amber-300/24 bg-amber-500/10 px-4 py-3 text-sm leading-6 text-amber-100">
-            Google Trends was unavailable in this run. The dashboard continues using news and YouTube comments.
+            ChÆ°a láº¥y Ä‘Æ°á»£c Google Trends á»Ÿ láº§n gá»i nÃ y. Dashboard váº«n dÃ¹ng news vÃ  YouTube comments nhÆ° bÃ¬nh thÆ°á»ng.
           </div>
         ) : null}
 
@@ -2407,19 +2384,19 @@ function renderEarlyForecastPanel(options = {}) {
         <div className="data-panel rounded-[26px] border p-6">
           <div className="flex items-start justify-between gap-3 mb-5">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Data Sources</p>
-              <p className="mt-1.5 text-lg font-semibold text-slate-900">Source Distribution</p>
-              <p className="mt-1 text-[13px] leading-relaxed text-slate-500">Number of tracked feeds by platform</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Nguá»“n dá»¯ liá»‡u</p>
+              <p className="mt-1.5 text-lg font-semibold text-slate-900">PhÃ¢n bá»• nguá»“n thu tháº­p</p>
+              <p className="mt-1 text-[13px] leading-relaxed text-slate-500">Sá»‘ lÆ°á»£ng feed Ä‘ang theo dÃµi theo tá»«ng ná»n táº£ng</p>
             </div>
           </div>
           <SourceBarChart
             sources={[
               { label: 'YouTube', value: sourceRoster.filter((s) => s.platform === 'youtube').length || 34, color: '#ef4444' },
-              { label: 'News', value: sourceRoster.filter((s) => s.category === 'news').length || 28, color: '#3b82f6' },
-              { label: 'Finance', value: sourceRoster.filter((s) => s.category === 'finance').length || 18, color: '#10b981' },
+              { label: 'BÃ¡o chÃ­', value: sourceRoster.filter((s) => s.category === 'news').length || 28, color: '#3b82f6' },
+              { label: 'TÃ i chÃ­nh', value: sourceRoster.filter((s) => s.category === 'finance').length || 18, color: '#10b981' },
               { label: 'Blog', value: sourceRoster.filter((s) => s.category === 'blog').length || 12, color: '#8b5cf6' },
-              { label: 'Forum', value: sourceRoster.filter((s) => s.category === 'forum').length || 5, color: '#f59e0b' },
-              { label: 'Social', value: sourceRoster.filter((s) => s.category === 'social').length || 3, color: '#06b6d4' },
+              { label: 'Diá»…n Ä‘Ã n', value: sourceRoster.filter((s) => s.category === 'forum').length || 5, color: '#f59e0b' },
+              { label: 'Máº¡ng xÃ£ há»™i', value: sourceRoster.filter((s) => s.category === 'social').length || 3, color: '#06b6d4' },
             ]}
           />
         </div>
@@ -2535,11 +2512,11 @@ function renderEarlyForecastPanel(options = {}) {
                 {renderScoreExplainPanel(overview.topCompany, { title: 'Score' })}
               </div>
             ) : (
-              <p className="text-sm text-slate-500">Cha cA3 da  liu.</p>
+              <p className="text-sm text-slate-500">ChÆ°a cÃ³ dá»¯ liá»‡u.</p>
             )}
           </Panel>
 
-          <Panel title="Latest alerts" description="Danh sAch caon review ngay.">
+          <Panel title="Latest alerts" description="Danh sÃ¡ch cáº§n review ngay.">
             <div className="space-y-3">
               {(overview.latestAlerts || []).map((alert) => (
                 <div key={alert.id} className="data-tile rounded-2xl border px-4 py-4">
@@ -2560,7 +2537,7 @@ function renderEarlyForecastPanel(options = {}) {
           </Panel>
         </div>
 
-        <Panel title="Latest market coverage" description="CAc b i mi nhaot trong knowledge base.">
+        <Panel title="Latest market coverage" description="CÃ¡c bÃ i má»›i nháº¥t trong knowledge base.">
           <div className="grid gap-3 xl:grid-cols-3">
             {(overview.latestNews || []).map((article) => (
               <a
@@ -2602,7 +2579,7 @@ function renderEarlyForecastPanel(options = {}) {
             <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Market intelligence workspace</p>
             <h1 className="mt-2 text-4xl font-semibold tracking-tight text-slate-900">Overview</h1>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-              Trang iau h nh taop trung v o tAn hiu mi nhaot, vaon gia  to n b lch sa A ingest.
+              Trang Ä‘iá»u hÃ nh táº­p trung vÃ o tÃ­n hiá»‡u má»›i nháº¥t, váº«n giá»¯ toÃ n bá»™ lá»‹ch sá»­ Ä‘Ã£ ingest.
             </p>
           </div>
           <div className="flex gap-3">
@@ -2621,7 +2598,7 @@ function renderEarlyForecastPanel(options = {}) {
               disabled={crawlStatus === 'loading'}
               className="animated-gradient rounded-2xl bg-[linear-gradient(90deg,rgba(14,165,233,1),rgba(59,130,246,0.96),rgba(217,70,239,0.92),rgba(251,146,60,0.92))] px-4 py-3 text-sm font-medium text-white shadow-[0_18px_34px_-18px_rgba(14,165,233,0.72)] transition-transform duration-200 hover:-translate-y-0.5 disabled:opacity-60"
             >
-              {crawlStatus === 'loading' ? 'Aang crawl...' : 'Run Crawl'}
+              {crawlStatus === 'loading' ? 'Äang crawl...' : 'Run Crawl'}
               </button>
             ) : null}
           </div>
@@ -2712,11 +2689,11 @@ function renderEarlyForecastPanel(options = {}) {
                 {renderScoreExplainPanel(overview.topCompany, { title: 'Why the top score' })}
               </div>
             ) : (
-              <p className="text-sm text-slate-500">Cha cA3 da  liu.</p>
+              <p className="text-sm text-slate-500">ChÆ°a cÃ³ dá»¯ liá»‡u.</p>
             )}
           </Panel>
 
-          <Panel title="Latest alerts" description="Danh sAch caon review ngay.">
+          <Panel title="Latest alerts" description="Danh sÃ¡ch cáº§n review ngay.">
             <div className="space-y-3">
               {(overview.latestAlerts || []).map((alert) => (
                 <div key={alert.id} className="rounded-2xl border border-slate-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(255,247,237,0.9),rgba(250,245,255,0.82))] px-4 py-4 shadow-[0_16px_34px_-28px_rgba(15,23,42,0.22)]">
@@ -2737,7 +2714,7 @@ function renderEarlyForecastPanel(options = {}) {
           </Panel>
         </div>
 
-        <Panel title="Latest market coverage" description="CAc b i mi nhaot trong knowledge base.">
+        <Panel title="Latest market coverage" description="CÃ¡c bÃ i má»›i nháº¥t trong knowledge base.">
           <div className="grid gap-3 xl:grid-cols-3">
             {(overview.latestNews || []).map((article) => (
               <a
@@ -2771,7 +2748,7 @@ function renderEarlyForecastPanel(options = {}) {
           <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Tracked companies</p>
           <h1 className="font-display mt-2 text-4xl font-semibold tracking-tight text-slate-900">Companies</h1>
           <p className="hidden">
-            Company board n y u tiAan tc  ac: thaoy ngay brand nA3ng, caon review v  ang gia  trong watchlist.
+            Company board nÃ y Æ°u tiÃªn tá»‘c Ä‘á»™ Ä‘á»c: tháº¥y ngay brand nÃ³ng, cáº§n review vÃ  Ä‘ang giá»¯ trong watchlist.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Badge tone="info">{companies.length} total companies</Badge>
@@ -3165,7 +3142,7 @@ function renderEarlyForecastPanel(options = {}) {
                 </CollapsiblePanel>
               </div>
             ) : (
-              <p className="text-sm text-slate-500">KhA ng cA3 company ac chan.</p>
+              <p className="text-sm text-slate-500">KhÃ´ng cÃ³ company Ä‘Æ°á»£c chá»n.</p>
             )}
           </Panel>
         </div>
@@ -3180,12 +3157,12 @@ function renderEarlyForecastPanel(options = {}) {
           <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Tracked companies</p>
           <h1 className="font-display mt-2 text-4xl font-semibold tracking-tight text-slate-900">Companies</h1>
           <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-            Da  liu company laoy trac tiaop ta articles A crawl, vaa theo dAi tAn hiu mi vaa gia  lch sa mention cA  phAn tAch khA ng b maot maoch.
+            Dá»¯ liá»‡u company láº¥y trá»±c tiáº¿p tá»« articles Ä‘Ã£ crawl, vá»«a theo dÃµi tÃ­n hiá»‡u má»›i vá»«a giá»¯ lá»‹ch sá»­ mention cÅ© Ä‘á»ƒ phÃ¢n tÃ­ch khÃ´ng bá»‹ máº¥t máº¡ch.
           </p>
         </div>
 
         <div className="grid gap-4 xl:grid-cols-[0.88fr_1.12fr]">
-          <Panel title="Company list" description="Hin th recent mentions / lifetime mentions.">
+          <Panel title="Company list" description="Hiá»ƒn thá»‹ recent mentions / lifetime mentions.">
             <div className="space-y-2">
               <div className="flex flex-wrap gap-2 pb-2">
                 <select
@@ -3392,7 +3369,7 @@ function renderEarlyForecastPanel(options = {}) {
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-slate-500">KhA ng cA3 company ac chan.</p>
+              <p className="text-sm text-slate-500">KhÃ´ng cÃ³ company Ä‘Æ°á»£c chá»n.</p>
             )}
           </Panel>
         </div>
@@ -3407,12 +3384,12 @@ function renderEarlyForecastPanel(options = {}) {
           <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Risk monitoring</p>
           <h1 className="font-display mt-2 text-4xl font-semibold tracking-tight text-slate-900">Alerts</h1>
           <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-            Alert queue ac sinh ta company analytics thaot, cA3 tAnh aon da  liu mi v  lch sa mention.
+            Alert queue Ä‘Æ°á»£c sinh tá»« company analytics tháº­t, cÃ³ tÃ­nh Ä‘áº¿n dá»¯ liá»‡u má»›i vÃ  lá»‹ch sá»­ mention.
           </p>
         </div>
 
         <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-          <Panel title="Alert queue" description="CAc company caon analyst review.">
+          <Panel title="Alert queue" description="CÃ¡c company cáº§n analyst review.">
             <div className="space-y-3">
               {alerts.map((alert) => (
                 <button
@@ -3514,324 +3491,220 @@ function renderEarlyForecastPanel(options = {}) {
   }
 
   function renderMarketView() {
-  const hasData = selectedMarketCandles.length > 0
-  const windowSize = 72
-  const maxOffset = Math.max(0, selectedMarketCandles.length - windowSize)
-  const normalizedOffset = Math.min(maxOffset, Math.max(0, marketOffset))
-  const visibleCandles = hasData
-    ? selectedMarketCandles.slice(
-      Math.max(0, selectedMarketCandles.length - windowSize - normalizedOffset),
-      selectedMarketCandles.length - normalizedOffset,
-    )
-    : []
+    const hasData = selectedMarketCandles.length > 0
+    const windowSize = 72
+    const maxOffset = Math.max(0, selectedMarketCandles.length - windowSize)
+    const normalizedOffset = Math.min(maxOffset, Math.max(0, marketOffset))
+    const visibleCandles = hasData
+      ? selectedMarketCandles.slice(
+          Math.max(0, selectedMarketCandles.length - windowSize - normalizedOffset),
+          selectedMarketCandles.length - normalizedOffset,
+        )
+      : []
 
-  const prices = visibleCandles.map((item) => [item.low, item.high]).flat()
-  const forecastLows = selectedMarketForecast.map((item) => item.lower)
-  const forecastHighs = selectedMarketForecast.map((item) => item.upper)
-  const minPrice = hasData ? Math.min(...prices, ...(forecastLows.length ? forecastLows : [Infinity])) : 0
-  const maxPrice = hasData ? Math.max(...prices, ...(forecastHighs.length ? forecastHighs : [0])) : 1
-  const chartRange = Math.max(1, maxPrice - minPrice)
+    const prices = visibleCandles.map((item) => [item.low, item.high]).flat()
+    const minPrice = hasData ? Math.min(...prices, ...selectedMarketForecast.map((item) => item.lower)) : 0
+    const maxPrice = hasData ? Math.max(...prices, ...selectedMarketForecast.map((item) => item.upper)) : 1
+    const chartRange = Math.max(1, maxPrice - minPrice)
+    const priceHeight = 286
+    const volumeHeight = 78
+    const chartWidth = 980
+    const chartPadding = { top: 14, right: 72, bottom: 18, left: 8 }
+    const plotX = chartPadding.left
+    const plotY = chartPadding.top
+    const plotWidth = chartWidth
+    const pricePlotHeight = priceHeight
+    const volumeTop = plotY + pricePlotHeight + 12
+    const candleGap = chartWidth / Math.max(1, visibleCandles.length || 1)
+    const candleWidth = Math.max(4, candleGap * 0.68)
+    const volumeMax = hasData ? Math.max(...visibleCandles.map((item) => item.volume), 1) : 1
 
-  const priceHeight = 300
-  const volumeHeight = 72
-  const baseCandleGap = 11
-  const chartWidth = Math.max(900, (visibleCandles.length || 1) * baseCandleGap)
-  const chartPadding = { top: 16, right: 60, left: 12 }
-  const plotX = chartPadding.left
-  const plotY = chartPadding.top
-  const plotWidth = chartWidth
-  const volumeTop = plotY + priceHeight + 10
-  const candleGap = chartWidth / Math.max(1, visibleCandles.length || 1)
-  const candleWidth = Math.max(5, Math.min(9, candleGap * 0.72))
-  const volumeMax = hasData ? Math.max(...visibleCandles.map((item) => item.volume), 1) : 1
-  const svgWidth = Math.max(1020, chartWidth + 140)
-  const svgHeight = 430
+    const yForPrice = (value) => plotY + (pricePlotHeight - ((value - minPrice) / chartRange) * pricePlotHeight)
+    const xForCandle = (index) => plotX + index * candleGap + candleGap * 0.5
+    const chartSvgWidth = Math.max(1120, chartWidth + chartPadding.left + chartPadding.right + 120)
+    const chartSvgHeight = 460
+    const hoverCandle = marketHoverIndex >= 0 ? visibleCandles[marketHoverIndex] : null
+    const hoverX = marketHoverIndex >= 0 ? xForCandle(marketHoverIndex) : null
+    const rsi = computeRsi(visibleCandles)
+    const marketCap = MARKET_CAP_BY_SYMBOL[selectedMarketSymbol] || 0
+    const trendUp = (selectedMarketQuote?.change || 0) >= 0
+    const selectedConf = Math.max(58, Math.min(96, 68 + Math.round(Math.abs(selectedMarketQuote?.changePct || 0) * 4)))
+    const foreignNet = Math.round((selectedMarketQuote?.avgVolume || 0) * 0.08) * (trendUp ? 1 : -1)
+    const breadthAdv = MARKET_SYMBOLS.filter((item) => {
+      const candles = marketSeriesBySymbol[item.symbol]?.candles || []
+      if (candles.length < 2) return false
+      return candles[candles.length - 1].close >= candles[candles.length - 2].close
+    }).length
+    const breadthDec = Math.max(0, MARKET_SYMBOLS.length - breadthAdv)
+    const ma20 = visibleCandles.map((_, idx) => {
+      const window = visibleCandles.slice(Math.max(0, idx - 19), idx + 1)
+      return window.reduce((sum, c) => sum + c.close, 0) / window.length
+    })
+    const ma50 = visibleCandles.map((_, idx) => {
+      const window = visibleCandles.slice(Math.max(0, idx - 49), idx + 1)
+      return window.reduce((sum, c) => sum + c.close, 0) / window.length
+    })
 
-  const yForPrice = (value) => plotY + (priceHeight - ((value - minPrice) / chartRange) * priceHeight)
-  const xForCandle = (index) => plotX + index * candleGap + candleGap * 0.5
-  const forecastStartX = plotX + ((visibleCandles.length || 1) * candleGap) + Math.max(14, candleGap)
-
-  const watchlistItems = MARKET_SYMBOLS.map((item) => {
-    const candles = marketSeriesBySymbol[item.symbol]?.candles || []
-    const last = candles[candles.length - 1]
-    const quote = marketSeriesBySymbol[item.symbol]?.quote || {}
-    const prev = candles[candles.length - 2] || null
-    const baseline = Number.isFinite(quote.previousClose) && quote.previousClose > 0
-      ? quote.previousClose
-      : (prev?.close || last?.close || 0)
-    const changePct = baseline ? (((last?.close || 0) - baseline) / baseline) * 100 : 0
-    return {
-      ...item,
-      last,
-      changePct,
-      up: changePct >= 0,
-      spark: candles.slice(-18),
-    }
-  })
-
-  return (
-    <div className="space-y-4">
-      <div className="rounded-2xl border border-white/10 bg-[rgba(12,18,28,0.84)] p-4">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-5 text-sm text-slate-300">
-            <span className="text-xl font-bold text-cyan-300">TY</span>
-            <span className="hidden md:inline">Products</span>
-            <span className="hidden md:inline">Markets</span>
-            <span className="hidden md:inline">News</span>
-            <span className="hidden md:inline">Brokers</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300">Search</div>
-            <div className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-slate-300">Menu</div>
-          </div>
-        </div>
-        <div className="mb-3 flex items-center justify-between text-xs text-slate-400">
-          <span>{selectedMarketMeta.exchange} | {selectedMarketQuote?.regularMarketTime || marketSnapshot.fetchedAt || '--'}</span>
-          <span>{marketStatus === 'error' ? 'Feed Delay' : marketStatus === 'loading' ? 'Syncing' : 'Live'}</span>
+    return (
+      <div className="market-terminal rounded-3xl border border-white/10 p-4 sm:p-5">
+        <div className="market-ticker mb-4 flex items-center gap-4 overflow-x-auto rounded-xl border border-white/10 px-3 py-2 text-xs">
+          <span className="shrink-0 text-cyan-300">LIVE HOSE</span>
+          {MARKET_SYMBOLS.map((item) => {
+            const candles = marketSeriesBySymbol[item.symbol]?.candles || []
+            const last = candles[candles.length - 1]
+            const prev = candles[candles.length - 2] || last
+            const pct = prev?.close ? ((last?.close || 0) - prev.close) / prev.close * 100 : 0
+            return <span key={`ticker-${item.symbol}`} className={`shrink-0 ${pct >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{item.symbol} {pct >= 0 ? '+' : ''}{pct.toFixed(2)}%</span>
+          })}
         </div>
 
-        <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {[
-            { name: 'VNINDEX', value: '1,284.32', change: '+0.84%', up: true },
-            { name: 'VN30', value: '1,318.48', change: '+0.62%', up: true },
-            { name: 'HNXINDEX', value: '244.16', change: '-0.18%', up: false },
-            { name: 'UPCOM', value: '94.72', change: '+0.11%', up: true },
-          ].map((index) => (
-            <div key={index.name} className="rounded-xl border border-white/10 bg-white/5 p-3">
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-slate-400">{index.name}</p>
-                <span className={`text-xs ${index.up ? 'text-emerald-300' : 'text-rose-300'}`}>{index.change}</span>
-              </div>
-              <p className="mt-2 text-xl font-semibold text-slate-100">{index.value}</p>
-            </div>
-          ))}
+        <div className="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-white/10 bg-white/5 p-3 md:grid-cols-[1.2fr_1fr_auto_auto]">
+          <div className="text-sm text-slate-200">VNINDEX <span className="font-semibold">1,284.32</span> <span className="text-emerald-300">+0.84%</span></div>
+          <div className="text-sm text-slate-300">HOSE | {selectedMarketQuote?.regularMarketTime || marketSnapshot.fetchedAt || '--'}</div>
+          <div className={`rounded-md border px-2 py-1 text-xs ${marketStatus === 'error' ? 'border-rose-300/35 bg-rose-500/10 text-rose-200' : marketStatus === 'loading' ? 'border-amber-300/35 bg-amber-500/10 text-amber-200' : 'border-cyan-300/30 bg-cyan-400/10 text-cyan-200'}`}>{marketStatus === 'error' ? 'Feed Delay' : marketStatus === 'loading' ? 'Syncing' : 'Market Open'}</div>
+          <div className="rounded-md border border-white/15 bg-white/5 px-2 py-1 text-xs text-slate-300">🔔 4</div>
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
-          <div className="rounded-xl border border-white/10 bg-[#0B1220]/88 p-3">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <p className="text-xs uppercase tracking-[0.14em] text-slate-400">{selectedMarketMeta.exchange}</p>
-                <p className="text-lg font-semibold text-slate-100">{selectedMarketMeta.symbol} - {selectedMarketMeta.name}</p>
-                <p className="mt-1 text-xs text-slate-400">Last {formatVnd(selectedMarketQuote?.close || 0)} | Predict {formatVnd(selectedMarketForecast[0]?.center || 0)} | RSI {computeRsi(visibleCandles).toFixed(1)}</p>
-                <div className="mt-2 inline-flex items-center gap-2 rounded-md border border-amber-300/30 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-200">
-                  <span className="size-1.5 rounded-full bg-amber-300" />
-                  Prediction: next {selectedMarketForecast.length} bars
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {[
-                  { label: '1m', value: '1m' },
-                  { label: '5m', value: '5m' },
-                  { label: '15m', value: '15m' },
-                  { label: '1H', value: '1h' },
-                  { label: '4H', value: '60m' },
-                  { label: '1D', value: '1d' },
-                  { label: '1W', value: '1wk' },
-                ].map((item) => (
-                  <button
-                    key={item.label}
-                    type="button"
-                    onClick={() => setMarketInterval(item.value)}
-                    className={`rounded-md border px-2 py-1 text-xs ${marketInterval === item.value ? 'border-cyan-300/45 bg-cyan-500/15 text-cyan-200' : 'border-white/10 text-slate-300'}`}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-                {['1d', '5d', '1mo', '3mo', '6mo', '1y', '2y', '5y', 'ytd', 'max'].map((range) => (
-                  <button
-                    key={range}
-                    type="button"
-                    onClick={() => { setMarketRange(range); setMarketOffset(0) }}
-                    className={`rounded-md border px-2 py-1 text-xs ${marketRange === range ? 'border-emerald-300/45 bg-emerald-500/15 text-emerald-200' : 'border-white/10 text-slate-300'}`}
-                  >
-                    {range}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {hasData ? (
-              <div className="overflow-x-auto">
-                <svg width={svgWidth} height={svgHeight} viewBox={`0 0 ${svgWidth} ${svgHeight}`} onMouseLeave={() => setMarketHoverIndex(-1)}>
-                  <defs>
-                    <linearGradient id="candleUpGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="rgba(52,211,153,0.98)" />
-                      <stop offset="100%" stopColor="rgba(5,150,105,0.92)" />
-                    </linearGradient>
-                    <linearGradient id="candleDownGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="rgba(251,113,133,0.97)" />
-                      <stop offset="100%" stopColor="rgba(225,29,72,0.92)" />
-                    </linearGradient>
-                    <linearGradient id="volumeUpGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="rgba(16,185,129,0.56)" />
-                      <stop offset="100%" stopColor="rgba(16,185,129,0.12)" />
-                    </linearGradient>
-                    <linearGradient id="volumeDownGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="rgba(244,63,94,0.56)" />
-                      <stop offset="100%" stopColor="rgba(244,63,94,0.12)" />
-                    </linearGradient>
-                    <filter id="candleGlow" x="-30%" y="-30%" width="160%" height="160%">
-                      <feDropShadow dx="0" dy="0.2" stdDeviation="0.75" floodColor="rgba(8,12,20,0.8)" />
-                    </filter>
-                  </defs>
-                  <rect x={plotX} y={plotY} width={plotWidth} height={priceHeight} fill="rgba(11,18,32,0.95)" />
-                  {Array.from({ length: 6 }).map((_, idx) => (
-                    <line
-                      key={`grid-${idx}`}
-                      x1={plotX}
-                      y1={plotY + (priceHeight / 5) * idx}
-                      x2={plotX + plotWidth}
-                      y2={plotY + (priceHeight / 5) * idx}
-                      stroke="rgba(148,163,184,0.18)"
-                    />
-                  ))}
-                  <polyline
-                    fill="none"
-                    stroke="rgba(56,189,248,0.65)"
-                    strokeWidth="0.95"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    points={visibleCandles.map((candle, idx) => `${xForCandle(idx)},${yForPrice(candle.close)}`).join(' ')}
-                  />
-                  {selectedMarketForecast.length ? (
-                    <>
-                      <path
-                        d={`M ${forecastStartX} ${yForPrice(selectedMarketForecast[0].upper)} ${selectedMarketForecast.map((point, idx) => `L ${forecastStartX + idx * Math.max(10, candleGap)} ${yForPrice(point.upper)}`).join(' ')} ${selectedMarketForecast.slice().reverse().map((point, idx) => {
-                          const x = forecastStartX + (selectedMarketForecast.length - 1 - idx) * Math.max(10, candleGap)
-                          return `L ${x} ${yForPrice(point.lower)}`
-                        }).join(' ')} Z`}
-                        fill="rgba(250,204,21,0.12)"
-                        stroke="none"
-                      />
-                      <polyline
-                        fill="none"
-                        stroke="rgba(250,204,21,0.95)"
-                        strokeWidth="1.6"
-                        strokeDasharray="5 5"
-                        points={selectedMarketForecast.map((point, idx) => `${forecastStartX + idx * Math.max(10, candleGap)},${yForPrice(point.center)}`).join(' ')}
-                      />
-                      {selectedMarketForecast.map((point, idx) => (
-                        <circle
-                          key={`f-pt-${point.step}`}
-                          cx={forecastStartX + idx * Math.max(10, candleGap)}
-                          cy={yForPrice(point.center)}
-                          r="2.2"
-                          fill="rgba(250,204,21,0.95)"
-                        />
-                      ))}
-                      <text x={forecastStartX} y={plotY + 14} fill="rgba(250,204,21,0.92)" fontSize="11" fontWeight="600">Forecast</text>
-                    </>
-                  ) : null}
-                  {visibleCandles.map((candle, idx) => {
-                    const x = xForCandle(idx)
-                    const openY = yForPrice(candle.open)
-                    const closeY = yForPrice(candle.close)
-                    const highY = yForPrice(candle.high)
-                    const lowY = yForPrice(candle.low)
-                    const up = candle.close >= candle.open
-                    const wickColor = up ? 'rgba(74,222,128,0.95)' : 'rgba(251,113,133,0.95)'
-                    const bodyFill = up ? 'url(#candleUpGrad)' : 'url(#candleDownGrad)'
-                    const bodyStroke = up ? 'rgba(16,185,129,0.85)' : 'rgba(251,113,133,0.82)'
-                    const bodyTop = Math.min(openY, closeY)
-                    const bodyHeight = Math.max(2.2, Math.abs(openY - closeY))
-                    const volumeH = (candle.volume / volumeMax) * volumeHeight
-                    const bodyWidth = marketHoverIndex === idx ? candleWidth + 0.8 : candleWidth
-
-                    return (
-                      <g key={`c-${idx}`} onMouseEnter={() => setMarketHoverIndex(idx)}>
-                        <line
-                          x1={x}
-                          y1={highY}
-                          x2={x}
-                          y2={lowY}
-                          stroke={wickColor}
-                          strokeWidth={marketHoverIndex === idx ? '1.7' : '1.2'}
-                          strokeLinecap="round"
-                          opacity={marketHoverIndex === idx ? '1' : '0.95'}
-                        />
-                        <rect
-                          x={x - bodyWidth / 2}
-                          y={bodyTop}
-                          width={bodyWidth}
-                          height={bodyHeight}
-                          fill={bodyFill}
-                          stroke={bodyStroke}
-                          strokeWidth={0.4}
-                          rx={1.05}
-                          filter="url(#candleGlow)"
-                          opacity={marketHoverIndex === idx ? '1' : '0.94'}
-                        />
-                        <rect
-                          x={x - candleWidth / 2}
-                          y={volumeTop + volumeHeight - volumeH}
-                          width={candleWidth}
-                          height={volumeH}
-                          fill={up ? 'url(#volumeUpGrad)' : 'url(#volumeDownGrad)'}
-                          opacity="0.78"
-                          rx="1.1"
-                        />
-                      </g>
-                    )
-                  })}
-                </svg>
-              </div>
-            ) : (
-              <div className="rounded-xl border border-white/10 bg-slate-900/40 p-6 text-sm text-slate-300">
-                {marketError || 'No realtime data for this symbol.'}
-              </div>
-            )}
-          </div>
-
-          <aside className="rounded-xl border border-white/10 bg-white/5 p-3">
-            <p className="mb-3 text-sm font-semibold text-slate-100">Watchlist</p>
+        <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)_320px]">
+          <aside className="rounded-2xl border border-white/10 bg-white/5 p-3">
+            <p className="mb-3 text-xs uppercase tracking-[0.14em] text-slate-400">Watchlist</p>
             <div className="space-y-2">
-              {watchlistItems.map((item) => {
+              {MARKET_SYMBOLS.map((item) => {
+                const candles = marketSeriesBySymbol[item.symbol]?.candles || []
+                const last = candles[candles.length - 1]
+                const prev = candles[candles.length - 2] || last
+                const pct = prev?.close ? ((last?.close || 0) - prev.close) / prev.close * 100 : 0
+                const up = pct >= 0
                 const active = selectedMarketSymbol === item.symbol
-                const spark = item.spark
-                const closes = spark.length ? spark.map((c) => c.close) : [0]
-                const base = closes[0] || 1
-                const relSeries = closes.map((value) => ((value - base) / base) * 100)
-                const relMin = Math.min(...relSeries, -0.2)
-                const relMax = Math.max(...relSeries, 0.2)
-                const relRange = Math.max(0.1, relMax - relMin)
-
+                const spark = candles.slice(-18)
+                const min = Math.min(...spark.map((c) => c.close), 0)
+                const max = Math.max(...spark.map((c) => c.close), 1)
                 return (
-                  <button
-                    key={item.symbol}
-                    type="button"
-                    onClick={() => setSelectedMarketSymbol(item.symbol)}
-                    className={`w-full rounded-lg border p-2 text-left ${active ? 'border-cyan-300/40 bg-cyan-500/12' : 'border-white/10 bg-slate-900/30'}`}
-                  >
-                    <div className="flex items-center justify-between">
+                  <button key={item.symbol} type="button" onClick={() => setSelectedMarketSymbol(item.symbol)} className={`w-full rounded-xl border p-2.5 text-left ${active ? 'border-cyan-300/40 bg-cyan-500/12' : 'border-white/10 bg-slate-900/30'}`}>
+                    <div className="flex items-center justify-between gap-2">
                       <div>
-                        <p className="text-sm font-medium text-slate-100">{item.symbol}</p>
+                        <p className="text-sm font-semibold text-slate-100">{item.symbol}</p>
                         <p className="text-[11px] text-slate-400">{item.name}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm text-slate-200">{formatVnd(item.last?.close || 0)}</p>
-                        <p className="text-[10px] text-slate-400">{formatCompact(item.last?.volume || 0)}</p>
-                        <p className={`text-xs ${item.up ? 'text-emerald-300' : 'text-rose-300'}`}>{item.up ? '+' : ''}{item.changePct.toFixed(2)}%</p>
+                        <p className="text-sm text-slate-200">{formatVnd(last?.close || 0)}</p>
+                        <p className={`text-xs ${up ? 'text-emerald-300' : 'text-rose-300'}`}>{up ? '+' : ''}{pct.toFixed(2)}%</p>
                       </div>
                     </div>
-                    <svg width="100%" height="24" viewBox="0 0 100 24" className="mt-1">
-                      <polyline
-                        fill="none"
-                        stroke={item.up ? 'rgba(16,185,129,0.9)' : 'rgba(244,63,94,0.9)'}
-                        strokeWidth="1.4"
-                        points={relSeries.map((value, i) => `${(i / Math.max(1, relSeries.length - 1)) * 100},${22 - ((value - relMin) / relRange) * 18}`).join(' ')}
-                      />
+                    <svg width="100%" height="26" viewBox="0 0 100 26" className="mt-1">
+                      <polyline fill="none" stroke={up ? 'rgba(16,185,129,0.9)' : 'rgba(244,63,94,0.9)'} strokeWidth="1.5" points={spark.map((c, i) => `${(i / Math.max(1, spark.length - 1)) * 100},${24 - ((c.close - min) / Math.max(1, max - min)) * 20}`).join(' ')} />
                     </svg>
                   </button>
                 )
               })}
             </div>
           </aside>
+
+          <section className="rounded-2xl border border-white/10 bg-white/5 p-3">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-xs uppercase tracking-[0.14em] text-slate-400">{selectedMarketMeta.exchange}</p>
+                <p className="text-xl font-semibold text-slate-50">{selectedMarketMeta.symbol} - {selectedMarketMeta.name}</p>
+              </div>
+              <div className={`rounded-md border px-2 py-1 text-xs ${trendUp ? 'border-emerald-300/40 bg-emerald-500/10 text-emerald-300' : 'border-rose-300/40 bg-rose-500/10 text-rose-300'}`}>
+                {trendUp ? '+' : ''}{(selectedMarketQuote?.changePct || 0).toFixed(2)}%
+              </div>
+            </div>
+
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {['1m', '5m', '15m', '1H', '4H', '1D', '1W', '1M'].map((item) => (
+                <button key={item} type="button" onClick={() => setMarketInterval(item.toLowerCase())} className={`rounded-md border px-2 py-1 text-xs ${marketInterval === item.toLowerCase() ? 'border-cyan-300/45 bg-cyan-500/15 text-cyan-200' : 'border-white/10 text-slate-300'}`}>{item}</button>
+              ))}
+              {['1d', '5d', '1mo', '3mo', '6mo', '1y'].map((range) => (
+                <button key={range} type="button" onClick={() => { setMarketRange(range); setMarketOffset(0) }} className={`rounded-md border px-2 py-1 text-xs ${marketRange === range ? 'border-emerald-300/40 bg-emerald-500/14 text-emerald-200' : 'border-white/10 text-slate-300'}`}>{range}</button>
+              ))}
+              <button type="button" onClick={() => loadMarketSnapshot()} className="rounded-md border border-white/15 px-2 py-1 text-xs text-slate-200">Refresh</button>
+            </div>
+
+            <div className="mb-3 grid gap-2 sm:grid-cols-4">
+              <div className="market-metric"><span>Open</span><b>{formatVnd(selectedMarketQuote?.open || 0)}</b></div>
+              <div className="market-metric"><span>High</span><b>{formatVnd(selectedMarketQuote?.high || 0)}</b></div>
+              <div className="market-metric"><span>Low</span><b>{formatVnd(selectedMarketQuote?.low || 0)}</b></div>
+              <div className="market-metric"><span>Volume</span><b>{formatCompact(selectedMarketQuote?.avgVolume || 0)}</b></div>
+              <div className="market-metric"><span>Market cap</span><b>{formatCompact(marketCap)}</b></div>
+              <div className="market-metric"><span>RSI</span><b>{rsi.toFixed(1)}</b></div>
+              <div className="market-metric"><span>Predict</span><b>{formatVnd(selectedMarketForecast[0]?.center || 0)}</b></div>
+              <div className="market-metric"><span>Confidence</span><b>{selectedConf}%</b></div>
+            </div>
+
+            {hasData ? <div className="overflow-x-auto rounded-xl border border-white/10 bg-[#0B1220]/80">
+              <svg width={chartSvgWidth} height={chartSvgHeight} viewBox={`0 0 ${chartSvgWidth} ${chartSvgHeight}`} onMouseLeave={() => setMarketHoverIndex(-1)}>
+                <rect x={plotX} y={plotY} width={plotWidth} height={pricePlotHeight} fill="rgba(11,18,32,0.95)" />
+                {Array.from({ length: 6 }).map((_, idx) => <line key={`g-${idx}`} x1={plotX} y1={plotY + (pricePlotHeight / 5) * idx} x2={plotX + plotWidth} y2={plotY + (pricePlotHeight / 5) * idx} stroke="rgba(148,163,184,0.16)" />)}
+                {visibleCandles.map((candle, idx) => {
+                  const x = xForCandle(idx)
+                  const openY = yForPrice(candle.open)
+                  const closeY = yForPrice(candle.close)
+                  const highY = yForPrice(candle.high)
+                  const lowY = yForPrice(candle.low)
+                  const up = candle.close >= candle.open
+                  const color = up ? 'rgba(16,185,129,0.95)' : 'rgba(244,63,94,0.95)'
+                  const vh = (candle.volume / volumeMax) * (volumeHeight - 6)
+                  return <g key={`mk-${candle.ts}-${idx}`} onMouseEnter={() => setMarketHoverIndex(idx)}>
+                    <line x1={x} y1={highY} x2={x} y2={lowY} stroke={color} />
+                    <rect x={x - candleWidth / 2} y={Math.min(openY, closeY)} width={candleWidth} height={Math.max(1.5, Math.abs(openY - closeY))} fill={color} opacity="0.88" />
+                    <rect x={x - candleWidth / 2} y={volumeTop + volumeHeight - 2 - vh} width={candleWidth} height={vh} fill={color} opacity="0.35" />
+                    {idx > 0 ? <line x1={xForCandle(idx - 1)} y1={yForPrice(ma20[idx - 1])} x2={x} y2={yForPrice(ma20[idx])} stroke="rgba(34,211,238,0.8)" strokeWidth="1.2" /> : null}
+                    {idx > 0 ? <line x1={xForCandle(idx - 1)} y1={yForPrice(ma50[idx - 1])} x2={x} y2={yForPrice(ma50[idx])} stroke="rgba(251,191,36,0.75)" strokeWidth="1.2" /> : null}
+                  </g>
+                })}
+                {hoverCandle && hoverX != null ? <g>
+                  <line x1={hoverX} y1={plotY} x2={hoverX} y2={volumeTop + volumeHeight} stroke="rgba(226,232,240,0.35)" strokeDasharray="3 4" />
+                  <rect x={hoverX + 10} y={plotY + 8} width="190" height="118" rx="8" fill="rgba(11,18,32,0.94)" stroke="rgba(148,163,184,0.35)" />
+                  <text x={hoverX + 18} y={plotY + 28} fill="#cbd5e1" fontSize="11">O: {formatVnd(hoverCandle.open)}</text>
+                  <text x={hoverX + 18} y={plotY + 45} fill="#cbd5e1" fontSize="11">H: {formatVnd(hoverCandle.high)}</text>
+                  <text x={hoverX + 18} y={plotY + 62} fill="#cbd5e1" fontSize="11">L: {formatVnd(hoverCandle.low)}</text>
+                  <text x={hoverX + 18} y={plotY + 79} fill="#cbd5e1" fontSize="11">C: {formatVnd(hoverCandle.close)}</text>
+                  <text x={hoverX + 18} y={plotY + 98} fill="#93a4b8" fontSize="10">{hoverCandle.timeLabel || hoverCandle.ts}</text>
+                </g> : null}
+              </svg>
+            </div> : <div className="rounded-xl border border-white/10 bg-slate-900/40 p-6 text-sm text-slate-300">{marketError || 'Không có dữ liệu realtime cho symbol này.'}</div>}
+
+            <div className="mt-3 flex justify-between text-xs text-slate-400">
+              <span>MA20: Cyan · MA50: Amber</span>
+              <span>{marketSnapshot.fetchedAt ? `Fetched: ${marketSnapshot.fetchedAt}` : ''}</span>
+            </div>
+          </section>
+
+          <aside className="space-y-3 rounded-2xl border border-white/10 bg-white/5 p-3">
+            <p className="text-sm font-semibold text-slate-100">AI Market Assistant</p>
+            <div className="market-ai-card"><span>Sentiment analysis</span><b className={trendUp ? 'text-emerald-300' : 'text-rose-300'}>{trendUp ? 'Positive bias' : 'Risk-off bias'}</b><div className="market-bar"><i style={{ width: `${Math.max(44, Math.min(86, 52 + Math.abs(selectedMarketQuote?.changePct || 0) * 12))}%` }} /></div></div>
+            <div className="market-ai-card"><span>Predicted trend</span><b className="text-cyan-300">{selectedMarketForecast[0]?.center > (selectedMarketQuote?.close || 0) ? 'Mild upside 4H' : 'Sideway / pullback'}</b><div className="market-bar"><i style={{ width: `${selectedConf}%` }} /></div></div>
+            <div className="market-ai-card"><span>News summary</span><p className="text-xs text-slate-300">Dòng tiền tập trung bluechip HOSE; nhóm ngân hàng giữ nhịp, bất động sản hồi phục chọn lọc.</p></div>
+            <div className="market-ai-card"><span>Anomaly detection</span><b className="text-amber-300">{Math.abs(selectedMarketQuote?.changePct || 0) > 2 ? 'Volume spike detected' : 'No critical anomaly'}</b><div className="market-bar"><i style={{ width: `${Math.max(22, Math.min(80, Math.abs(selectedMarketQuote?.changePct || 0) * 20))}%` }} /></div></div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="rounded-lg border border-white/10 bg-slate-900/40 p-2 text-slate-300">Foreign net<br /><span className={foreignNet >= 0 ? 'text-emerald-300' : 'text-rose-300'}>{foreignNet >= 0 ? '+' : ''}{formatCompact(foreignNet)}</span></div>
+              <div className="rounded-lg border border-white/10 bg-slate-900/40 p-2 text-slate-300">Breadth<br /><span className="text-cyan-300">{breadthAdv}↑ / {breadthDec}↓</span></div>
+            </div>
+          </aside>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3">
+          <p className="mb-2 text-xs uppercase tracking-[0.14em] text-slate-400">Sector performance</p>
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-6">
+            {[
+              ['Ngân hàng', 1.24],
+              ['Bất động sản', -0.63],
+              ['Bán lẻ', 0.92],
+              ['Thép', -0.35],
+              ['Công nghệ', 1.76],
+              ['Năng lượng', 0.41],
+            ].map(([label, change]) => (
+              <div key={label} className={`rounded-lg border p-2 text-xs ${change >= 0 ? 'border-emerald-300/20 bg-emerald-500/10 text-emerald-200' : 'border-rose-300/20 bg-rose-500/10 text-rose-200'}`}>
+                <p className="text-slate-300">{label}</p>
+                <p className="mt-1 font-semibold">{change >= 0 ? '+' : ''}{change}%</p>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
-    </div>
-  )
-}
+    )
+  }
 function _renderCompare() {
     return (
       <div className="space-y-5">
@@ -3839,7 +3712,7 @@ function _renderCompare() {
           <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Watchlist benchmarking</p>
           <h1 className="font-display mt-2 text-4xl font-semibold tracking-tight text-slate-900">Compare</h1>
           <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-            So sAnh ti a 3 thng hiu theo mentions, negative ratio, forecast risk v  top topics.
+            So sÃ¡nh tá»‘i Ä‘a 3 thÆ°Æ¡ng hiá»‡u theo mentions, negative ratio, forecast risk vÃ  top topics.
           </p>
         </div>
 
@@ -4014,7 +3887,7 @@ function _renderCompare() {
               <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Workspace</p>
               <p className="font-display mt-3 text-xl font-semibold text-slate-950">BAV Enterprise</p>
               <p className="mt-2 text-sm leading-7 text-slate-600">
-                Dashboard u tiAan workflow thaot, nhiau m u hn nhng vaon data-dense. Da  liu mi v o khA ng l m maot da  liu cA.
+                Dashboard Æ°u tiÃªn workflow tháº­t, nhiá»u mÃ u hÆ¡n nhÆ°ng váº«n data-dense. Dá»¯ liá»‡u má»›i vÃ o khÃ´ng lÃ m máº¥t dá»¯ liá»‡u cÅ©.
               </p>
             </div>
           </div>
@@ -4164,12 +4037,12 @@ function _renderCompare() {
               <div className="flex min-h-[60vh] items-center justify-center">
                 <div className="flex items-center gap-3 text-slate-400">
                   <LoaderCircle className="size-5 animate-spin" />
-                  Đang tải dữ liệu dashboard...
+                  Äang táº£i dá»¯ liá»‡u dashboard...
                 </div>
               </div>
             ) : error && !overview && !companies.length ? (
               <div className="rounded-2xl border border-rose-200 bg-rose-50 px-6 py-5">
-                <p className="text-base font-semibold text-rose-700"></p>
+                <p className="text-base font-semibold text-rose-700">KhÃ´ng thá»ƒ táº£i dá»¯ liá»‡u</p>
                 <p className="mt-2 text-sm text-rose-600">{error}</p>
               </div>
             ) : activeView === 'companies' ? (
@@ -4216,7 +4089,7 @@ function _renderCompare() {
                   <div>
                     <p className="text-sm font-semibold text-slate-950">AI Assistant</p>
                     <p className="mt-1 text-sm text-slate-500">
-                      {activeView === 'companies' && selectedCompany ? `Aang phAn tAch: ${selectedCompany.name}` : 'Aang  chao  phAn tAch tng quan'}
+                      {activeView === 'companies' && selectedCompany ? `Äang phÃ¢n tÃ­ch: ${selectedCompany.name}` : 'Äang á»Ÿ cháº¿ Ä‘á»™ phÃ¢n tÃ­ch tá»•ng quan'}
                     </p>
                   </div>
                 </div>
@@ -4276,7 +4149,7 @@ function _renderCompare() {
                     }
                   }}
                   rows={3}
-                  placeholder="Nhaop cAu hai tiaop theo..."
+                  placeholder="Nháº­p cÃ¢u há»i tiáº¿p theo..."
                   className="min-h-[84px] flex-1 rounded-[24px] border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(240,249,255,0.94),rgba(250,245,255,0.88))] px-4 py-3 text-sm text-slate-900 outline-none shadow-[0_16px_34px_-26px_rgba(15,23,42,0.2)] focus:border-sky-300"
                 />
                 <button
@@ -4296,8 +4169,6 @@ function _renderCompare() {
     </div>
   )
 }
-
-
 
 
 

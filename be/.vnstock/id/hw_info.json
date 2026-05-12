@@ -1,0 +1,54 @@
+{
+  "device_id": "341c1f564bfeaf28fb9b94b2d1661d17",
+  "register_date": "2026-05-12T15:26:03.740189",
+  "version_installed": "0.0.1",
+  "os": "Windows",
+  "os_platform": "Windows-11-10.0.26200-SP0",
+  "python": "3.13.9",
+  "arch": "SP0",
+  "cpu_count": 20,
+  "memory_gb": 31.7,
+  "environment": "script",
+  "hosting_service": null,
+  "ide": {
+    "ide_name": "VS Code",
+    "detection_method": "process_chain",
+    "detected_at": "2026-05-12T15:26:03.740179",
+    "process_chain_depth": 2,
+    "matched_process": "codex.exe",
+    "environment_variable": null,
+    "frontend": null,
+    "shell_name": null
+  },
+  "reference_data": {
+    "commercial_usage": {
+      "commercial_probability": 0.375,
+      "likely_commercial": false,
+      "indicators": {
+        "basic_indicators": {
+          "domain_match": true,
+          "env_var_match": false,
+          "dir_match": false,
+          "file_match": false
+        },
+        "framework_match": false,
+        "has_database": false,
+        "domain_is_commercial": true,
+        "project_structure": "commercial_app",
+        "business_hours_usage": true
+      }
+    },
+    "packages_snapshot": [],
+    "git_info": {
+      "domain": "github.com",
+      "owner": "Munwind",
+      "commit_count": 7,
+      "branch_count": 1,
+      "has_git": true,
+      "repo_path": "D:/BAV_project/BAV_project",
+      "repo_name": "BAV_project",
+      "has_license": false,
+      "license_type": "unknown"
+    }
+  }
+}
