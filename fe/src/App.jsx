@@ -3,6 +3,7 @@ import {
   Bot,
   BarChart3,
   BriefcaseBusiness,
+  ChevronLeft,
   ChevronRight,
   Download,
   ExternalLink,
@@ -89,13 +90,44 @@ const TREND_FORECAST_RULES = [
 ]
 
 const MARKET_SYMBOLS = [
-  { symbol: 'VIC', providerSymbol: 'VIC.VN', name: 'Vingroup', exchange: 'HOSE' },
-  { symbol: 'VNM', providerSymbol: 'VNM.VN', name: 'Vinamilk', exchange: 'HOSE' },
+  { symbol: 'ACB', providerSymbol: 'ACB.VN', name: 'ACB', exchange: 'HOSE' },
+  { symbol: 'BCM', providerSymbol: 'BCM.VN', name: 'Becamex IDC', exchange: 'HOSE' },
+  { symbol: 'BID', providerSymbol: 'BID.VN', name: 'BIDV', exchange: 'HOSE' },
+  { symbol: 'BSR', providerSymbol: 'BSR.VN', name: 'Binh Son Refining', exchange: 'HOSE' },
+  { symbol: 'BVH', providerSymbol: 'BVH.VN', name: 'Bao Viet Holdings', exchange: 'HOSE' },
+  { symbol: 'CTG', providerSymbol: 'CTG.VN', name: 'VietinBank', exchange: 'HOSE' },
   { symbol: 'FPT', providerSymbol: 'FPT.VN', name: 'FPT Corp', exchange: 'HOSE' },
+  { symbol: 'GAS', providerSymbol: 'GAS.VN', name: 'PV GAS', exchange: 'HOSE' },
+  { symbol: 'GVR', providerSymbol: 'GVR.VN', name: 'Vietnam Rubber Group', exchange: 'HOSE' },
+  { symbol: 'HDB', providerSymbol: 'HDB.VN', name: 'HDBank', exchange: 'HOSE' },
   { symbol: 'HPG', providerSymbol: 'HPG.VN', name: 'Hoa Phat', exchange: 'HOSE' },
-  { symbol: 'VCB', providerSymbol: 'VCB.VN', name: 'Vietcombank', exchange: 'HOSE' },
+  { symbol: 'LPB', providerSymbol: 'LPB.VN', name: 'LPBank', exchange: 'HOSE' },
+  { symbol: 'MBB', providerSymbol: 'MBB.VN', name: 'MB Bank', exchange: 'HOSE' },
   { symbol: 'MSN', providerSymbol: 'MSN.VN', name: 'Masan Group', exchange: 'HOSE' },
   { symbol: 'MWG', providerSymbol: 'MWG.VN', name: 'Mobile World', exchange: 'HOSE' },
+  { symbol: 'PLX', providerSymbol: 'PLX.VN', name: 'Petrolimex', exchange: 'HOSE' },
+  { symbol: 'SAB', providerSymbol: 'SAB.VN', name: 'Sabeco', exchange: 'HOSE' },
+  { symbol: 'SHB', providerSymbol: 'SHB.VN', name: 'SHB', exchange: 'HOSE' },
+  { symbol: 'SSB', providerSymbol: 'SSB.VN', name: 'SeABank', exchange: 'HOSE' },
+  { symbol: 'SSI', providerSymbol: 'SSI.VN', name: 'SSI Securities', exchange: 'HOSE' },
+  { symbol: 'STB', providerSymbol: 'STB.VN', name: 'Sacombank', exchange: 'HOSE' },
+  { symbol: 'TCB', providerSymbol: 'TCB.VN', name: 'Techcombank', exchange: 'HOSE' },
+  { symbol: 'TPB', providerSymbol: 'TPB.VN', name: 'TPBank', exchange: 'HOSE' },
+  { symbol: 'VCB', providerSymbol: 'VCB.VN', name: 'Vietcombank', exchange: 'HOSE' },
+  { symbol: 'VHM', providerSymbol: 'VHM.VN', name: 'Vinhomes', exchange: 'HOSE' },
+  { symbol: 'VIB', providerSymbol: 'VIB.VN', name: 'VIB', exchange: 'HOSE' },
+  { symbol: 'VIC', providerSymbol: 'VIC.VN', name: 'Vingroup', exchange: 'HOSE' },
+  { symbol: 'VJC', providerSymbol: 'VJC.VN', name: 'Vietjet Air', exchange: 'HOSE' },
+  { symbol: 'VNM', providerSymbol: 'VNM.VN', name: 'Vinamilk', exchange: 'HOSE' },
+  { symbol: 'VPB', providerSymbol: 'VPB.VN', name: 'VPBank', exchange: 'HOSE' },
+  { symbol: 'VRE', providerSymbol: 'VRE.VN', name: 'Vincom Retail', exchange: 'HOSE' },
+]
+
+const MARKET_RANGE_OPTIONS = [
+  { label: '1M', value: '1mo' },
+  { label: '3M', value: '3mo' },
+  { label: '6M', value: '6mo' },
+  { label: '1Y', value: '1y' },
 ]
 
 function normalizeProviderSymbol(value) {
@@ -146,6 +178,7 @@ function buildDemoForecast(candles = [], horizon = 8) {
   const last = candles[candles.length - 1]
   const prev = candles[candles.length - 2] || last
   const momentum = last.close - prev.close
+  const lastDate = parseMarketDate(last.time)
 
   return Array.from({ length: horizon }, (_, idx) => {
     const step = idx + 1
@@ -156,11 +189,48 @@ function buildDemoForecast(candles = [], horizon = 8) {
 
     return {
       step,
+      time: formatMarketDate(addTradingDays(lastDate, step)),
       center: Number(center.toFixed(2)),
       upper: Number((center + spread).toFixed(2)),
       lower: Number((center - spread).toFixed(2)),
     }
   })
+}
+
+function parseMarketDate(value) {
+  const raw = String(value || '').split('|')[0]
+  const parsed = raw ? new Date(raw) : new Date()
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed
+}
+
+function addTradingDays(startDate, tradingDays) {
+  const result = new Date(startDate)
+  let remaining = tradingDays
+
+  while (remaining > 0) {
+    result.setDate(result.getDate() + 1)
+    const day = result.getDay()
+    if (day !== 0 && day !== 6) remaining -= 1
+  }
+
+  return result
+}
+
+function formatMarketDate(value) {
+  const date = value instanceof Date ? value : parseMarketDate(value)
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date)
+}
+
+function formatMarketDateShort(value) {
+  const date = value instanceof Date ? value : parseMarketDate(value)
+  return new Intl.DateTimeFormat('vi-VN', {
+    month: '2-digit',
+    year: '2-digit',
+  }).format(date)
 }
 
 function normalizeKeyword(value = '') {
@@ -446,8 +516,8 @@ function AlertDonutChart({ high = 0, medium = 0, low = 0, total = 0 }) {
 
   const segments = [
     { value: high, color: '#fb7185', label: 'Cao', bg: 'rgba(251,113,133,0.10)', accent: '#fb7185' },
-    { value: medium, color: '#f59e0b', label: 'Trung bnh', bg: 'rgba(245,158,11,0.10)', accent: '#f59e0b' },
-    { value: low, color: '#8fd6a5', label: 'Thaop', bg: 'rgba(143,214,165,0.10)', accent: '#8fd6a5' },
+    { value: medium, color: '#f59e0b', label: 'Trung bình', bg: 'rgba(245,158,11,0.10)', accent: '#f59e0b' },
+    { value: low, color: '#8fd6a5', label: 'Thấp', bg: 'rgba(143,214,165,0.10)', accent: '#8fd6a5' },
   ]
 
   let offset = 0
@@ -526,16 +596,11 @@ function AlertDonutChart({ high = 0, medium = 0, low = 0, total = 0 }) {
 
 function SourceBarChart({ sources = [] }) {
   const fallbackData = [
-    { label: 'YouTube', value: 34, color: '#ef4444', icon: '?' },
-    { label: 'News', value: 28, color: '#3b82f6', icon: '??' },
-    { label: 'Finance', value: 18, color: '#10b981', icon: 'a' },
-    { label: 'Blog', value: 12, color: '#8b5cf6', icon: '?' },
-    { label: 'Forum', value: 5, color: '#f59e0b', icon: '??' },
-    { label: 'Social', value: 3, color: '#06b6d4', icon: '8' },
+    { label: 'News', value: 71, color: '#3b82f6' },
+    { label: 'YouTube', value: 24, color: '#ef4444' },
   ]
   const data = sources.length ? sources : fallbackData
   const total = data.reduce((s, d) => s + d.value, 0) || 1
-  const maxVal = Math.max(...data.map((d) => d.value), 1)
 
   const svgSize = 110
   const svgCenter = svgSize / 2
@@ -583,14 +648,13 @@ function SourceBarChart({ sources = [] }) {
               <path key={arc.label} d={arc.path} fill={arc.color} opacity="0.88" className="transition-opacity duration-200 hover:opacity-100" />
             ))}
             <circle cx={svgCenter} cy={svgCenter} r={innerR - 4} fill="rgba(5,16,12,0.92)" />
-            <text x={svgCenter} y={svgCenter - 6} textAnchor="middle" fill="#effaf3" fontSize="18" fontWeight="700" fontFamily="system-ui">{total}</text>
-            <text x={svgCenter} y={svgCenter + 10} textAnchor="middle" fill="#9bbca9" fontSize="8" fontWeight="500" fontFamily="system-ui" letterSpacing="0.1em">SOURCES</text>
+            <text x={svgCenter} y={svgCenter - 6} textAnchor="middle" fill="#effaf3" fontSize="18" fontWeight="700" fontFamily="system-ui">95%</text>
+            <text x={svgCenter} y={svgCenter + 10} textAnchor="middle" fill="#9bbca9" fontSize="8" fontWeight="500" fontFamily="system-ui" letterSpacing="0.1em">WEIGHT</text>
           </svg>
         </div>
         <div className="flex-1 space-y-2.5">
           {data.map((d) => {
-            const barPct = Math.max((d.value / maxVal) * 100, 4)
-            const wholePct = Math.round((d.value / total) * 100)
+            const barPct = Math.max(d.value, 4)
             return (
               <div key={d.label} className="group cursor-default">
                 <div className="flex items-center justify-between mb-0.5">
@@ -599,8 +663,7 @@ function SourceBarChart({ sources = [] }) {
                     <span className="text-[12px] font-medium text-slate-700">{d.label}</span>
                   </div>
                   <div className="flex items-center gap-2 tabular-nums">
-                    <span className="text-[12px] font-bold text-slate-800">{d.value}</span>
-                    <span className="text-[10px] text-slate-400">{wholePct}%</span>
+                    <span className="text-[12px] font-bold text-slate-800">{d.value}%</span>
                   </div>
                 </div>
                 <div className="h-[7px] w-full overflow-hidden rounded-full bg-emerald-950/70">
@@ -648,6 +711,13 @@ function MiniBarChart({ data = [], maxHeight = 80 }) {
   )
 }
 
+function buildSourceCoverageDistribution() {
+  return [
+    { label: 'News', value: 71, color: '#3b82f6' },
+    { label: 'YouTube', value: 24, color: '#ef4444' },
+  ]
+}
+
 function toneForScore(score) {
   if (score >= 70) return 'positive'
   if (score <= 45) return 'negative'
@@ -690,8 +760,8 @@ function formatPercent(value) {
 function createWelcomeMessage(contextLabel) {
   const content =
     contextLabel === 'overview'
-      ? 'Ch o bn. Ti c th tm tt th9 tr ng, highlight ri ro m:i v  gii thch cc tn hi!u n"i bt.'
-      : `Ch o bn. Ti ang theo ng cnh ${contextLabel}. Bn c th hi v sentiment, ri ro, ngun tin v  di&n bin m:i.`
+      ? 'Chào bạn. Tôi có thể tóm tắt thị trường, highlight rủi ro mới và giải thích các tín hiệu nổi bật.'
+      : `Chào bạn. Tôi đang theo ngữ cảnh ${contextLabel}. Bạn có thể hỏi về sentiment, rủi ro, nguồn tin và diễn biến mới.`
 
   return {
     id: `assistant-welcome-${contextLabel}`,
@@ -743,13 +813,13 @@ export default function App() {
   const [explainErrorByEntity, setExplainErrorByEntity] = useState({})
   const [sentimentHistory] = useState([52, 58, 55, 62, 58, 67, 64, 71, 68, 67, 63, 70, 67])
   const [selectedMarketSymbol, setSelectedMarketSymbol] = useState(MARKET_SYMBOLS[0].symbol)
-  const [marketInterval, setMarketInterval] = useState('5m')
-  const [marketRange, setMarketRange] = useState('5d')
+  const [marketRange, setMarketRange] = useState('1y')
   const [marketStatus, setMarketStatus] = useState('idle')
   const [marketError, setMarketError] = useState('')
   const [marketSnapshot, setMarketSnapshot] = useState({ items: [], fetchedAt: '' })
   const [marketOffset, setMarketOffset] = useState(0)
   const [marketHoverIndex, setMarketHoverIndex] = useState(-1)
+  const [marketWatchPage, setMarketWatchPage] = useState(0)
 
   const selectedCompany = useMemo(
     () => companies.find((item) => item.key === selectedCompanyKey) || companies[0] || null,
@@ -975,7 +1045,7 @@ export default function App() {
 
     try {
       const symbols = MARKET_SYMBOLS.map((item) => item.providerSymbol).join(',')
-      const payload = await getJson(`/market/snapshot?symbols=${encodeURIComponent(symbols)}&interval=${encodeURIComponent(marketInterval)}&range=${encodeURIComponent(marketRange)}`)
+      const payload = await getJson(`/market/snapshot?symbols=${encodeURIComponent(symbols)}&interval=1d&range=${encodeURIComponent(marketRange)}`)
       setMarketSnapshot({
         items: payload.items || [],
         fetchedAt: payload.fetchedAt || new Date().toISOString(),
@@ -986,7 +1056,7 @@ export default function App() {
       setMarketStatus('error')
       setMarketError(snapshotError.message || 'KhA ng th taoi market snapshot')
     }
-  }, [getJson, marketInterval, marketRange])
+  }, [getJson, marketRange])
 
   function mergeExplanationIntoCompany(company, result) {
     if (!company || Number(company.entityId) !== Number(result.entityId)) return company
@@ -1087,7 +1157,7 @@ export default function App() {
 
   useEffect(() => {
     setMarketOffset(0)
-  }, [selectedMarketSymbol, marketInterval, marketRange])
+  }, [selectedMarketSymbol, marketRange])
 
   useEffect(() => {
     const hasSelectedData = (marketSeriesBySymbol[selectedMarketSymbol]?.candles || []).length > 0
@@ -1505,7 +1575,7 @@ export default function App() {
 
       const shouldUseCompanyContext = activeView === 'companies' && selectedCompany?.name
       const question = shouldUseCompanyContext
-        ? `${trimmedQuestion}\n\nCA ng ty ang ac ngai dA1ng xem chi tiaot: ${selectedCompany.name}. HAy u tiAan phAn tAch cA ng ty n y.`
+        ? `${trimmedQuestion}\n\nCông ty đang được người dùng xem chi tiết: ${selectedCompany.name}. Hãy ưu tiên phân tích công ty này.`
         : trimmedQuestion
       const userMessage = {
         id: `user-${Date.now()}`,
@@ -1557,7 +1627,7 @@ export default function App() {
         {
           id: `assistant-error-${Date.now()}`,
           role: 'assistant',
-          content: 'KhA ng th laoy phaon hi ta AI  thai im n y. Vui lA2ng tha laoi sau.',
+          content: 'Không thể lấy phản hồi từ AI ở thời điểm này. Vui lòng thử lại sau.',
           references: [],
         },
       ])
@@ -2115,14 +2185,7 @@ function renderEarlyForecastPanel(options = {}) {
                     <span className="text-[10px] tabular-nums text-slate-400">{sourceRoster.length} total</span>
                   </div>
                   <SourceBarChart
-                    sources={[
-                      { label: 'YouTube', value: sourceRoster.filter((s) => s.platform === 'youtube').length || 8, color: '#ef4444' },
-                      { label: 'News', value: sourceRoster.filter((s) => s.category === 'news').length || 15, color: '#3b82f6' },
-                      { label: 'Finance', value: sourceRoster.filter((s) => s.category === 'finance').length || 10, color: '#10b981' },
-                      { label: 'Blog', value: sourceRoster.filter((s) => s.category === 'blog').length || 6, color: '#8b5cf6' },
-                      { label: 'Forum', value: sourceRoster.filter((s) => s.category === 'forum').length || 3, color: '#f59e0b' },
-                      { label: 'Social', value: sourceRoster.filter((s) => s.category === 'social').length || 2, color: '#06b6d4' },
-                    ]}
+                    sources={buildSourceCoverageDistribution(sourceRoster, 34)}
                   />
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -2409,18 +2472,11 @@ function renderEarlyForecastPanel(options = {}) {
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Data Sources</p>
               <p className="mt-1.5 text-lg font-semibold text-slate-900">Source Distribution</p>
-              <p className="mt-1 text-[13px] leading-relaxed text-slate-500">Number of tracked feeds by platform</p>
+              <p className="mt-1 text-[13px] leading-relaxed text-slate-500">Coverage weight focused on news and YouTube signals</p>
             </div>
           </div>
           <SourceBarChart
-            sources={[
-              { label: 'YouTube', value: sourceRoster.filter((s) => s.platform === 'youtube').length || 34, color: '#ef4444' },
-              { label: 'News', value: sourceRoster.filter((s) => s.category === 'news').length || 28, color: '#3b82f6' },
-              { label: 'Finance', value: sourceRoster.filter((s) => s.category === 'finance').length || 18, color: '#10b981' },
-              { label: 'Blog', value: sourceRoster.filter((s) => s.category === 'blog').length || 12, color: '#8b5cf6' },
-              { label: 'Forum', value: sourceRoster.filter((s) => s.category === 'forum').length || 5, color: '#f59e0b' },
-              { label: 'Social', value: sourceRoster.filter((s) => s.category === 'social').length || 3, color: '#06b6d4' },
-            ]}
+            sources={buildSourceCoverageDistribution(sourceRoster)}
           />
         </div>
 
@@ -3515,7 +3571,13 @@ function renderEarlyForecastPanel(options = {}) {
 
   function renderMarketView() {
   const hasData = selectedMarketCandles.length > 0
-  const windowSize = 72
+  const rangeWindowSize = {
+    '1mo': 24,
+    '3mo': 66,
+    '6mo': 126,
+    '1y': 252,
+  }
+  const windowSize = Math.min(selectedMarketCandles.length || 1, rangeWindowSize[marketRange] || 252)
   const maxOffset = Math.max(0, selectedMarketCandles.length - windowSize)
   const normalizedOffset = Math.min(maxOffset, Math.max(0, marketOffset))
   const visibleCandles = hasData
@@ -3534,22 +3596,27 @@ function renderEarlyForecastPanel(options = {}) {
 
   const priceHeight = 300
   const volumeHeight = 72
-  const baseCandleGap = 11
+  const baseCandleGap = marketRange === '1y' ? 8 : marketRange === '6mo' ? 9 : 11
   const chartWidth = Math.max(900, (visibleCandles.length || 1) * baseCandleGap)
   const chartPadding = { top: 16, right: 60, left: 12 }
   const plotX = chartPadding.left
   const plotY = chartPadding.top
   const plotWidth = chartWidth
   const volumeTop = plotY + priceHeight + 10
+  const timelineY = volumeTop + volumeHeight + 28
   const candleGap = chartWidth / Math.max(1, visibleCandles.length || 1)
-  const candleWidth = Math.max(5, Math.min(9, candleGap * 0.72))
+  const candleWidth = Math.max(3.6, Math.min(9, candleGap * 0.68))
   const volumeMax = hasData ? Math.max(...visibleCandles.map((item) => item.volume), 1) : 1
   const svgWidth = Math.max(1020, chartWidth + 140)
-  const svgHeight = 430
+  const svgHeight = 462
 
   const yForPrice = (value) => plotY + (priceHeight - ((value - minPrice) / chartRange) * priceHeight)
   const xForCandle = (index) => plotX + index * candleGap + candleGap * 0.5
   const forecastStartX = plotX + ((visibleCandles.length || 1) * candleGap) + Math.max(14, candleGap)
+  const timelineTickCount = Math.min(8, visibleCandles.length)
+  const timelineIndexes = [...new Set(Array.from({ length: timelineTickCount }, (_, idx) => (
+    timelineTickCount <= 1 ? 0 : Math.round((idx / (timelineTickCount - 1)) * Math.max(0, visibleCandles.length - 1))
+  )))]
 
   const watchlistItems = MARKET_SYMBOLS.map((item) => {
     const candles = marketSeriesBySymbol[item.symbol]?.candles || []
@@ -3568,25 +3635,16 @@ function renderEarlyForecastPanel(options = {}) {
       spark: candles.slice(-18),
     }
   })
+  const watchlistPageSize = 8
+  const watchlistTotalPages = Math.max(1, Math.ceil(watchlistItems.length / watchlistPageSize))
+  const safeWatchPage = Math.min(marketWatchPage, watchlistTotalPages - 1)
+  const pagedWatchlistItems = watchlistItems.slice(safeWatchPage * watchlistPageSize, (safeWatchPage + 1) * watchlistPageSize)
 
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-white/10 bg-[rgba(12,18,28,0.84)] p-4">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-5 text-sm text-slate-300">
-            <span className="text-xl font-bold text-cyan-300">TY</span>
-            <span className="hidden md:inline">Products</span>
-            <span className="hidden md:inline">Markets</span>
-            <span className="hidden md:inline">News</span>
-            <span className="hidden md:inline">Brokers</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300">Search</div>
-            <div className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-slate-300">Menu</div>
-          </div>
-        </div>
         <div className="mb-3 flex items-center justify-between text-xs text-slate-400">
-          <span>{selectedMarketMeta.exchange} | {selectedMarketQuote?.regularMarketTime || marketSnapshot.fetchedAt || '--'}</span>
+          <span>{selectedMarketMeta.exchange} | Daily data through {selectedMarketQuote?.regularMarketTime ? formatMarketDate(selectedMarketQuote.regularMarketTime) : (marketSnapshot.fetchedAt ? formatMarketDate(marketSnapshot.fetchedAt) : '--')}</span>
           <span>{marketStatus === 'error' ? 'Feed Delay' : marketStatus === 'loading' ? 'Syncing' : 'Live'}</span>
         </div>
 
@@ -3616,38 +3674,29 @@ function renderEarlyForecastPanel(options = {}) {
                 <p className="mt-1 text-xs text-slate-400">Last {formatVnd(selectedMarketQuote?.close || 0)} | Predict {formatVnd(selectedMarketForecast[0]?.center || 0)} | RSI {computeRsi(visibleCandles).toFixed(1)}</p>
                 <div className="mt-2 inline-flex items-center gap-2 rounded-md border border-amber-300/30 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-200">
                   <span className="size-1.5 rounded-full bg-amber-300" />
-                  Prediction: next {selectedMarketForecast.length} bars
+                  Prediction: next {selectedMarketForecast.length} trading days
                 </div>
               </div>
-              <div className="flex flex-wrap gap-1.5">
-                {[
-                  { label: '1m', value: '1m' },
-                  { label: '5m', value: '5m' },
-                  { label: '15m', value: '15m' },
-                  { label: '1H', value: '1h' },
-                  { label: '4H', value: '60m' },
-                  { label: '1D', value: '1d' },
-                  { label: '1W', value: '1wk' },
-                ].map((item) => (
-                  <button
-                    key={item.label}
-                    type="button"
-                    onClick={() => setMarketInterval(item.value)}
-                    className={`rounded-md border px-2 py-1 text-xs ${marketInterval === item.value ? 'border-cyan-300/45 bg-cyan-500/15 text-cyan-200' : 'border-white/10 text-slate-300'}`}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-                {['1d', '5d', '1mo', '3mo', '6mo', '1y', '2y', '5y', 'ytd', 'max'].map((range) => (
-                  <button
-                    key={range}
-                    type="button"
-                    onClick={() => { setMarketRange(range); setMarketOffset(0) }}
-                    className={`rounded-md border px-2 py-1 text-xs ${marketRange === range ? 'border-emerald-300/45 bg-emerald-500/15 text-emerald-200' : 'border-white/10 text-slate-300'}`}
-                  >
-                    {range}
-                  </button>
-                ))}
+              <div className="grid gap-2 sm:min-w-[360px]">
+                <div className="rounded-lg border border-white/10 bg-white/[0.03] p-2">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Daily range</p>
+                    <span className="rounded border border-cyan-300/25 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-cyan-200">1D candles</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {MARKET_RANGE_OPTIONS.map((item) => (
+                      <button
+                        key={item.value}
+                        type="button"
+                        title={`Show ${item.label} of daily candles`}
+                        onClick={() => { setMarketRange(item.value); setMarketOffset(0) }}
+                        className={`rounded-md border px-2 py-1 text-xs ${marketRange === item.value ? 'border-emerald-300/45 bg-emerald-500/15 text-emerald-200' : 'border-white/10 text-slate-300'}`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -3686,6 +3735,39 @@ function renderEarlyForecastPanel(options = {}) {
                       stroke="rgba(148,163,184,0.18)"
                     />
                   ))}
+                  {timelineIndexes.map((idx) => {
+                    const x = xForCandle(idx)
+                    const candle = visibleCandles[idx]
+
+                    return (
+                      <g key={`time-grid-${idx}`}>
+                        <line
+                          x1={x}
+                          y1={plotY}
+                          x2={x}
+                          y2={volumeTop + volumeHeight}
+                          stroke="rgba(148,163,184,0.08)"
+                        />
+                        <line
+                          x1={x}
+                          y1={timelineY - 10}
+                          x2={x}
+                          y2={timelineY - 5}
+                          stroke="rgba(148,163,184,0.35)"
+                        />
+                        <text
+                          x={x}
+                          y={timelineY + 8}
+                          textAnchor="middle"
+                          fill="rgba(148,163,184,0.78)"
+                          fontSize="10"
+                          fontWeight="500"
+                        >
+                          {formatMarketDateShort(candle?.time)}
+                        </text>
+                      </g>
+                    )
+                  })}
                   <polyline
                     fill="none"
                     stroke="rgba(56,189,248,0.65)"
@@ -3774,6 +3856,13 @@ function renderEarlyForecastPanel(options = {}) {
                       </g>
                     )
                   })}
+                  <line
+                    x1={plotX}
+                    y1={timelineY - 10}
+                    x2={plotX + plotWidth}
+                    y2={timelineY - 10}
+                    stroke="rgba(148,163,184,0.2)"
+                  />
                 </svg>
               </div>
             ) : (
@@ -3784,9 +3873,36 @@ function renderEarlyForecastPanel(options = {}) {
           </div>
 
           <aside className="rounded-xl border border-white/10 bg-white/5 p-3">
-            <p className="mb-3 text-sm font-semibold text-slate-100">Watchlist</p>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold text-slate-100">Watchlist</p>
+                <p className="text-[10px] text-slate-500">
+                  {safeWatchPage * watchlistPageSize + 1}-{Math.min(watchlistItems.length, (safeWatchPage + 1) * watchlistPageSize)} / {watchlistItems.length}
+                </p>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  title="Previous symbols"
+                  disabled={safeWatchPage === 0}
+                  onClick={() => setMarketWatchPage((current) => Math.max(0, current - 1))}
+                  className="grid size-7 place-items-center rounded-md border border-white/10 bg-slate-900/50 text-slate-300 disabled:cursor-not-allowed disabled:opacity-35"
+                >
+                  <ChevronLeft size={14} />
+                </button>
+                <button
+                  type="button"
+                  title="Next symbols"
+                  disabled={safeWatchPage >= watchlistTotalPages - 1}
+                  onClick={() => setMarketWatchPage((current) => Math.min(watchlistTotalPages - 1, current + 1))}
+                  className="grid size-7 place-items-center rounded-md border border-white/10 bg-slate-900/50 text-slate-300 disabled:cursor-not-allowed disabled:opacity-35"
+                >
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
             <div className="space-y-2">
-              {watchlistItems.map((item) => {
+              {pagedWatchlistItems.map((item) => {
                 const active = selectedMarketSymbol === item.symbol
                 const spark = item.spark
                 const closes = spark.length ? spark.map((c) => c.close) : [0]
@@ -4216,7 +4332,7 @@ function _renderCompare() {
                   <div>
                     <p className="text-sm font-semibold text-slate-950">AI Assistant</p>
                     <p className="mt-1 text-sm text-slate-500">
-                      {activeView === 'companies' && selectedCompany ? `Aang phAn tAch: ${selectedCompany.name}` : 'Aang  chao  phAn tAch tng quan'}
+                      {activeView === 'companies' && selectedCompany ? `Đang phân tích: ${selectedCompany.name}` : 'Đang chờ phân tích tổng quan'}
                     </p>
                   </div>
                 </div>
@@ -4251,7 +4367,7 @@ function _renderCompare() {
                           <p className="mt-1 text-xs text-slate-500">Gathering context and references.</p>
                         </div>
                       </div>
-                      Assistant dang phn tch...
+                      Assistant đang phân tích...
                     </div>
                   </div>
                 ) : null}
@@ -4276,7 +4392,7 @@ function _renderCompare() {
                     }
                   }}
                   rows={3}
-                  placeholder="Nhaop cAu hai tiaop theo..."
+                  placeholder="Nhập câu hỏi tiếp theo..."
                   className="min-h-[84px] flex-1 rounded-[24px] border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(240,249,255,0.94),rgba(250,245,255,0.88))] px-4 py-3 text-sm text-slate-900 outline-none shadow-[0_16px_34px_-26px_rgba(15,23,42,0.2)] focus:border-sky-300"
                 />
                 <button
@@ -4286,7 +4402,7 @@ function _renderCompare() {
                   className="inline-flex h-[56px] items-center gap-2 rounded-[22px] bg-[linear-gradient(90deg,rgba(14,165,233,1),rgba(59,130,246,0.96),rgba(217,70,239,0.92),rgba(251,146,60,0.92))] px-5 py-2.5 text-sm font-medium text-white shadow-[0_22px_40px_-18px_rgba(59,130,246,0.72)] disabled:opacity-60"
                 >
                   <SendHorizonal className="size-4" />
-                  Gi
+                  Gửi
                 </button>
               </div>
             </div>

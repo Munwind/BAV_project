@@ -15,32 +15,16 @@ from vnstock.api.quote import Quote
 
 def range_to_days(value: str) -> int:
     mapping = {
-        "1d": 2,
-        "5d": 10,
         "1mo": 35,
         "3mo": 100,
         "6mo": 200,
         "1y": 380,
-        "2y": 760,
-        "5y": 1900,
-        "ytd": 180,
-        "max": 3650,
     }
-    return mapping.get((value or "").lower(), 35)
+    return mapping.get((value or "").lower(), 380)
 
 
 def interval_to_vnstock(value: str) -> str:
-    mapping = {
-        "1m": "1",
-        "5m": "5",
-        "15m": "15",
-        "30m": "30",
-        "60m": "60",
-        "1h": "60",
-        "1d": "1D",
-        "1wk": "1W",
-    }
-    return mapping.get((value or "").lower(), "1D")
+    return "1D"
 
 
 def pick_time(row):
@@ -122,11 +106,11 @@ def build_symbol(provider_symbol: str, symbol: str, interval: str, day_range: st
 
 def main():
     symbols_raw = sys.argv[1] if len(sys.argv) > 1 else "VIC.VN,VNM.VN,FPT.VN,HPG.VN,VCB.VN"
-    interval = sys.argv[2] if len(sys.argv) > 2 else "5m"
-    day_range = sys.argv[3] if len(sys.argv) > 3 else "5d"
+    interval = "1d"
+    day_range = sys.argv[3] if len(sys.argv) > 3 else "1y"
 
     symbols = [part.strip().upper() for part in symbols_raw.split(",") if part.strip()]
-    symbols = symbols[:8]
+    symbols = symbols[:30]
 
     items = []
     errors = []

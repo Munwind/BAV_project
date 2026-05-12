@@ -4,8 +4,8 @@ const { execFile } = require('child_process')
 
 const execFileAsync = promisify(execFile)
 const DEFAULT_SYMBOLS = ['VIC.VN', 'VNM.VN', 'FPT.VN', 'HPG.VN', 'VCB.VN']
-const ALLOWED_INTERVALS = new Set(['1m', '2m', '5m', '15m', '30m', '60m', '90m', '1h', '1d', '1wk'])
-const ALLOWED_RANGES = new Set(['1d', '5d', '1mo', '3mo', '6mo', '1y', '2y', '5y', 'ytd', 'max'])
+const MAX_SYMBOLS = 30
+const ALLOWED_RANGES = new Set(['1mo', '3mo', '6mo', '1y'])
 
 function sanitizeSymbols(input) {
   const raw = String(input || '')
@@ -14,32 +14,20 @@ function sanitizeSymbols(input) {
     .filter(Boolean)
 
   const symbols = raw.length ? raw : DEFAULT_SYMBOLS
-  return [...new Set(symbols)].slice(0, 8)
+  return [...new Set(symbols)].slice(0, MAX_SYMBOLS)
 }
 
 function sanitizeInterval(value) {
-  const interval = String(value || '5m').trim()
-  return ALLOWED_INTERVALS.has(interval) ? interval : '5m'
+  return '1d'
 }
 
 function sanitizeRange(value) {
-  const range = String(value || '5d').trim()
-  return ALLOWED_RANGES.has(range) ? range : '5d'
+  const range = String(value || '1y').trim()
+  return ALLOWED_RANGES.has(range) ? range : '1y'
 }
 
 function normalizeIntervalRange(interval, range) {
-  const safeInterval = sanitizeInterval(interval)
-  const safeRange = sanitizeRange(range)
-
-  if (safeInterval === '1m' && ['3mo', '6mo', '1y', '2y', '5y', 'ytd', 'max'].includes(safeRange)) {
-    return { interval: '5m', range: safeRange }
-  }
-
-  if (['2m', '5m', '15m', '30m', '60m', '90m', '1h'].includes(safeInterval) && ['5y', 'max'].includes(safeRange)) {
-    return { interval: '1d', range: safeRange }
-  }
-
-  return { interval: safeInterval, range: safeRange }
+  return { interval: sanitizeInterval(interval), range: sanitizeRange(range) }
 }
 
 function toIsoTimestamp(epochSeconds, timezone) {
