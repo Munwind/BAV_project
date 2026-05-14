@@ -702,13 +702,19 @@ function buildRiskForecast({
 
   const level24h = toLevel(forecastScore24h)
   const level7d = toLevel(forecastScore7d)
+  const sentimentConfidenceLift = Math.round((score - 50) * 0.16)
+  const activityConfidenceLift = last24hMentions >= 2 ? 3 : last24hMentions >= 1 ? 1 : 0
   const confidence = clamp(
-    48
-      + Math.min(sourceCount, 5) * 7
-      + Math.min(recentMentions, 6) * 4
-      + Math.min(lifetimeMentions, 10),
-    52,
-    92,
+    Math.round(
+      42
+        + Math.min(sourceCount, 5) * 5
+        + Math.min(recentMentions, 6) * 3
+        + Math.min(lifetimeMentions, 10) * 0.8
+        + activityConfidenceLift
+        + sentimentConfidenceLift,
+    ),
+    48,
+    95,
   )
 
   const summary =

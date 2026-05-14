@@ -9,7 +9,10 @@ import {
   ExternalLink,
   Globe,
   LayoutDashboard,
+  LogIn,
+  LogOut,
   LoaderCircle,
+  Lock,
   PanelLeft,
   RadioTower,
   RefreshCcw,
@@ -17,6 +20,7 @@ import {
   SendHorizonal,
   ShieldAlert,
   Sparkles,
+  User,
   WandSparkles,
   X,
 } from 'lucide-react'
@@ -33,7 +37,7 @@ const STATIC_GOOGLE_TRENDS = [
   { keyword: 'chung khoan Viet Nam', traffic: '100K+', relatedQueries: ['VN-Index', 'co phieu ngan hang'] },
   { keyword: 'lai suat ngan hang', traffic: '50K+', relatedQueries: ['gui tiet kiem', 'vay mua nha'] },
   { keyword: 'xang dau', traffic: '50K+', relatedQueries: ['gia xang', 'Petrolimex'] },
-  { keyword: 'bat ong san', traffic: '20K+', relatedQueries: ['at nen', 'chung cu'] },
+  { keyword: 'bat dong san', traffic: '20K+', relatedQueries: ['at nen', 'chung cu'] },
   { keyword: 'ty gia USD', traffic: '20K+', relatedQueries: ['VND', 'ngan hang'] },
   { keyword: 'du lich he', traffic: '20K+', relatedQueries: ['ve may bay', 'khach san'] },
   { keyword: 'AI doanh nghiep', traffic: '10K+', relatedQueries: ['tu ong hoa', 'chatbot'] },
@@ -63,7 +67,7 @@ const TREND_FORECAST_RULES = [
     match: ['lai suat', 'gui tiet kiem', 'vay mua nha'],
     theme: 'Rate sensitivity',
     forecast: 'Rates remain a pain point, creating new sentiment around banks and real estate.',
-    action: 'Theo doi ngan hang va bat ong san',
+    action: 'Theo doi ngan hang va bat dong san',
     impact: 'medium',
   },
   {
@@ -129,6 +133,12 @@ const MARKET_RANGE_OPTIONS = [
   { label: '6M', value: '6mo' },
   { label: '1Y', value: '1y' },
 ]
+
+const DEMO_AUTH = {
+  username: 'acc123',
+  password: '123456',
+  storageKey: 'sentimentx-authenticated',
+}
 
 function normalizeProviderSymbol(value) {
   return String(value || '').trim().toUpperCase()
@@ -257,7 +267,7 @@ function buildTrendForecast(trend) {
     theme: rule?.theme || 'Search spike',
     signal: trend.keyword,
     forecast: rule?.forecast || 'Search interest is accelerating; monitor whether momentum spreads to news and YouTube comments.',
-    action: rule?.action || 'Theo dAi entity liAan quan',
+    action: rule?.action || 'Theo dõi entity liên quan',
     confidence,
     impact: rule?.impact || (confidence >= 78 ? 'high' : confidence >= 64 ? 'medium' : 'low'),
     tone: rule?.impact === 'high' ? 'negative' : rule?.impact === 'medium' ? 'warning' : 'info',
@@ -291,7 +301,7 @@ function buildYoutubeForecast(companies = []) {
       leader.youtube.negativeShare >= 35
         ? 'YouTube comments are skewing negative; early alerts may appear before mainstream news.'
         : 'YouTube comment volume is notable; monitor sentiment shifts over the next 24h.',
-    action: 'M company detail v  baom Explain',
+    action: 'Mở company detail và bấm Explain',
     confidence: Math.min(92, 58 + Number(leader.youtube.mentions || 0) * 3 + Math.round(Number(leader.youtube.negativeShare || 0) / 3)),
     impact: leader.youtube.negativeShare >= 35 ? 'high' : 'medium',
     tone: leader.youtube.negativeShare >= 35 ? 'negative' : 'warning',
@@ -306,9 +316,9 @@ function Badge({ children, tone = 'default' }) {
   )
 }
 
-function Panel({ title, description, action, children }) {
+function Panel({ title, description, action, children, className = '', bodyClassName = '' }) {
   return (
-    <section className="panel-surface float-card rounded-[30px]">
+    <section className={`panel-surface float-card rounded-[30px] ${className}`}>
       <div className="panel-header flex items-start justify-between gap-4 px-5 py-4">
         <div>
           <h2 className="font-display text-[1.15rem] font-semibold tracking-[0.01em] text-slate-950">{title}</h2>
@@ -316,7 +326,7 @@ function Panel({ title, description, action, children }) {
         </div>
         {action}
       </div>
-      <div className="px-5 py-4">{children}</div>
+      <div className={`px-5 py-4 ${bodyClassName}`}>{children}</div>
     </section>
   )
 }
@@ -463,6 +473,72 @@ function SparkBars({ values = [], tone = 'info' }) {
   )
 }
 
+function AlertSignalGlyph({ alert }) {
+  const score = Math.max(0, Math.min(Number(alert?.score || 50), 100))
+  const negativeRatio = Math.max(0, Math.min(Number(alert?.negativeRatio || 0), 100))
+  const confidence = Math.max(0, Math.min(Number(alert?.forecastConfidence || 50), 100))
+  const mentions = Math.max(Number(alert?.mentions || 0), 0)
+  const lifetime = Math.max(Number(alert?.lifetimeMentions || mentions || 1), 1)
+  const velocity = Math.max(8, Math.min(100, Math.round((mentions / lifetime) * 100)))
+  const riskTone = alert?.forecastRisk7d || alert?.severity || 'medium'
+  const scoreX = Math.round((score / 100) * 168)
+  const negX = Math.round((negativeRatio / 100) * 168)
+  const velocityX = Math.round((velocity / 100) * 168)
+  const confidenceX = Math.round((confidence / 100) * 168)
+  const pulseSize = Math.max(18, Math.min(46, 18 + negativeRatio * 0.22 + mentions * 1.2))
+  const palette =
+    score >= 70
+      ? { accent: '#10b981', soft: 'rgba(16,185,129,0.16)', glow: 'rgba(16,185,129,0.42)' }
+      : score <= 45
+        ? { accent: '#f43f5e', soft: 'rgba(244,63,94,0.16)', glow: 'rgba(244,63,94,0.42)' }
+        : { accent: '#f59e0b', soft: 'rgba(245,158,11,0.16)', glow: 'rgba(245,158,11,0.42)' }
+
+  return (
+    <div className="mt-4 w-full max-w-[260px] rounded-[22px] border border-white/10 bg-slate-950/20 px-3 py-3">
+      <svg viewBox="0 0 220 72" className="h-[72px] w-full overflow-visible">
+        <defs>
+          <linearGradient id={`alert-line-${alert?.id || 'default'}`} x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#38bdf8" />
+            <stop offset="55%" stopColor={palette.accent} />
+            <stop offset="100%" stopColor="#fb7185" />
+          </linearGradient>
+          <filter id={`alert-glow-${alert?.id || 'default'}`}>
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+        {[18, 34, 50].map((y, idx) => (
+          <line key={y} x1="12" x2="180" y1={y} y2={y} stroke="rgba(148,163,184,0.22)" strokeWidth="1" strokeDasharray={idx === 1 ? '4 5' : '2 7'} />
+        ))}
+        <path
+          d={`M 12 ${56 - score * 0.32} C 48 ${48 - velocity * 0.22}, 78 ${60 - confidence * 0.32}, 112 ${54 - negativeRatio * 0.24} S 158 ${28 + negativeRatio * 0.12}, 180 ${58 - confidence * 0.28}`}
+          fill="none"
+          stroke={`url(#alert-line-${alert?.id || 'default'})`}
+          strokeWidth="3"
+          strokeLinecap="round"
+          filter={`url(#alert-glow-${alert?.id || 'default'})`}
+        />
+        <circle cx={12 + scoreX} cy={56 - score * 0.32} r="4.5" fill={palette.accent} />
+        <circle cx={12 + negX} cy={54 - negativeRatio * 0.24} r="3.8" fill="#fb7185" />
+        <circle cx={12 + velocityX} cy={48 - velocity * 0.22} r="3.2" fill="#38bdf8" />
+        <circle cx={12 + confidenceX} cy={58 - confidence * 0.28} r="3.2" fill="#a78bfa" />
+        <circle cx="198" cy="36" r={pulseSize / 2} fill={palette.soft} stroke={palette.accent} strokeWidth="2" filter={`url(#alert-glow-${alert?.id || 'default'})`} />
+        <text x="198" y="35" textAnchor="middle" fill={palette.accent} fontSize="10" fontWeight="800">{score}</text>
+        <text x="198" y="47" textAnchor="middle" fill="rgba(226,232,240,0.72)" fontSize="6" fontWeight="700">{riskTone.toUpperCase()}</text>
+      </svg>
+      <div className="mt-1 grid grid-cols-4 gap-1 text-[9px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+        <span>Score {score}</span>
+        <span>Neg {negativeRatio}%</span>
+        <span>Vel {velocity}%</span>
+        <span>Conf {confidence}</span>
+      </div>
+    </div>
+  )
+}
+
 function MiniSparkline({ values = [], color = 'cyan' }) {
   if (!values.length) return null
   const max = Math.max(...values)
@@ -595,11 +671,7 @@ function AlertDonutChart({ high = 0, medium = 0, low = 0, total = 0 }) {
 }
 
 function SourceBarChart({ sources = [] }) {
-  const fallbackData = [
-    { label: 'News', value: 71, color: '#3b82f6' },
-    { label: 'YouTube', value: 24, color: '#ef4444' },
-  ]
-  const data = sources.length ? sources : fallbackData
+  const data = sources.filter((item) => Number(item.value) > 0)
   const total = data.reduce((s, d) => s + d.value, 0) || 1
 
   const svgSize = 110
@@ -641,15 +713,16 @@ function SourceBarChart({ sources = [] }) {
 
   return (
     <div>
-      <div className="flex items-start gap-6">
+      {data.length ? (
+        <div className="flex items-start gap-6">
         <div className="relative shrink-0">
           <svg width={svgSize} height={svgSize} viewBox={`0 0 ${svgSize} ${svgSize}`}>
             {arcs.map((arc) => (
               <path key={arc.label} d={arc.path} fill={arc.color} opacity="0.88" className="transition-opacity duration-200 hover:opacity-100" />
             ))}
             <circle cx={svgCenter} cy={svgCenter} r={innerR - 4} fill="rgba(5,16,12,0.92)" />
-            <text x={svgCenter} y={svgCenter - 6} textAnchor="middle" fill="#effaf3" fontSize="18" fontWeight="700" fontFamily="system-ui">95%</text>
-            <text x={svgCenter} y={svgCenter + 10} textAnchor="middle" fill="#9bbca9" fontSize="8" fontWeight="500" fontFamily="system-ui" letterSpacing="0.1em">WEIGHT</text>
+            <text x={svgCenter} y={svgCenter - 2} textAnchor="middle" fill="#effaf3" fontSize="12" fontWeight="700" fontFamily="system-ui">SOURCE</text>
+            <text x={svgCenter} y={svgCenter + 12} textAnchor="middle" fill="#9bbca9" fontSize="8" fontWeight="500" fontFamily="system-ui" letterSpacing="0.1em">MIX</text>
           </svg>
         </div>
         <div className="flex-1 space-y-2.5">
@@ -677,6 +750,11 @@ function SourceBarChart({ sources = [] }) {
           })}
         </div>
       </div>
+      ) : (
+        <div className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-4 text-sm text-slate-500">
+          No source distribution available yet.
+        </div>
+      )}
     </div>
   )
 }
@@ -713,8 +791,8 @@ function MiniBarChart({ data = [], maxHeight = 80 }) {
 
 function buildSourceCoverageDistribution() {
   return [
-    { label: 'News', value: 71, color: '#3b82f6' },
-    { label: 'YouTube', value: 24, color: '#ef4444' },
+    { label: 'News', value: 64, color: '#3b82f6' },
+    { label: 'YouTube', value: 36, color: '#ef4444' },
   ]
 }
 
@@ -786,6 +864,7 @@ export default function App() {
   const [companyPage, setCompanyPage] = useState(1)
   const [watchlistKeys, setWatchlistKeys] = useState([])
   const [selectedAlertId, setSelectedAlertId] = useState('')
+  const [alertPage, setAlertPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [crawlStatus, setCrawlStatus] = useState('idle')
@@ -820,6 +899,9 @@ export default function App() {
   const [marketOffset, setMarketOffset] = useState(0)
   const [marketHoverIndex, setMarketHoverIndex] = useState(-1)
   const [marketWatchPage, setMarketWatchPage] = useState(0)
+  const [isAuthenticated, setIsAuthenticated] = useState(() => localStorage.getItem(DEMO_AUTH.storageKey) === 'true')
+  const [loginForm, setLoginForm] = useState({ username: '', password: '' })
+  const [loginError, setLoginError] = useState('')
 
   const selectedCompany = useMemo(
     () => companies.find((item) => item.key === selectedCompanyKey) || companies[0] || null,
@@ -878,6 +960,13 @@ export default function App() {
     const startIndex = (safePage - 1) * companyPageSize
     return filteredCompanies.slice(startIndex, startIndex + companyPageSize)
   }, [companyPage, filteredCompanies, totalCompanyPages])
+  const alertPageSize = 5
+  const totalAlertPages = Math.max(1, Math.ceil(alerts.length / alertPageSize))
+  const paginatedAlerts = useMemo(() => {
+    const safePage = Math.min(alertPage, totalAlertPages)
+    const startIndex = (safePage - 1) * alertPageSize
+    return alerts.slice(startIndex, startIndex + alertPageSize)
+  }, [alertPage, alerts, totalAlertPages])
   const chatContextKey = activeView === 'companies' && selectedCompany?.name ? `company:${selectedCompany.name}` : 'overview'
   const activeNavItem = nav.find((item) => item.id === activeView) || nav[0]
   const sourceCategories = useMemo(
@@ -977,6 +1066,31 @@ export default function App() {
     }))
   }
 
+  function handleLoginSubmit(event) {
+    event.preventDefault()
+    const username = loginForm.username.trim()
+    const password = loginForm.password
+
+    if (username === DEMO_AUTH.username && password === DEMO_AUTH.password) {
+      localStorage.setItem(DEMO_AUTH.storageKey, 'true')
+      setIsAuthenticated(true)
+      setLoginError('')
+      setLoginForm({ username: '', password: '' })
+      return
+    }
+
+    setLoginError('Sai tài khoản hoặc mật khẩu. Vui lòng kiểm tra lại.')
+  }
+
+  function handleLogout() {
+    localStorage.removeItem(DEMO_AUTH.storageKey)
+    setIsAuthenticated(false)
+    setAssistantOpen(false)
+    setMobileNavOpen(false)
+    setLoginForm({ username: '', password: '' })
+    setLoginError('')
+  }
+
   const getJson = useCallback(async (path) => {
     const response = await fetch(`${apiBaseUrl}${path}`)
     const data = await response.json()
@@ -1033,7 +1147,7 @@ export default function App() {
         setWatchlistKeys(companiesData.items.slice(0, 3).map((item) => item.key))
       }
     } catch (loadError) {
-      setError(loadError.message || 'KhA ng th taoi da  liu')
+      setError(loadError.message || 'Không thể tải dữ liệu')
     } finally {
       setLoading(false)
     }
@@ -1054,7 +1168,7 @@ export default function App() {
       setMarketError('')
     } catch (snapshotError) {
       setMarketStatus('error')
-      setMarketError(snapshotError.message || 'KhA ng th taoi market snapshot')
+      setMarketError(snapshotError.message || 'Không thể tải market snapshot')
     }
   }, [getJson, marketRange])
 
@@ -1114,7 +1228,7 @@ export default function App() {
       setExplainStatusByEntity((current) => ({ ...current, [entityId]: 'error' }))
       setExplainErrorByEntity((current) => ({
         ...current,
-        [entityId]: explainError.message || 'KhA ng th taoo giaoi thAch score',
+        [entityId]: explainError.message || 'Không thể tạo giải thích score',
       }))
     }
   }
@@ -1173,6 +1287,12 @@ export default function App() {
       setCompanyPage(totalCompanyPages)
     }
   }, [companyPage, totalCompanyPages])
+
+  useEffect(() => {
+    if (alertPage > totalAlertPages) {
+      setAlertPage(totalAlertPages)
+    }
+  }, [alertPage, totalAlertPages])
 
   useEffect(() => {
     const trimmedQuery = searchQuery.trim()
@@ -1326,7 +1446,7 @@ export default function App() {
                 <p className="text-xs uppercase tracking-[0.22em] text-slate-400">Source roster</p>
                 <p className="font-display mt-2 text-3xl font-semibold tracking-tight text-slate-950">Tracked sources</p>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                  Feed roster cho crawler: category, domain, endpoint v  ln crawl gn nht.
+                  Feed roster cho crawler: category, domain, endpoint và lần crawl gần nhất.
                 </p>
               </div>
               <button type="button" onClick={() => setSourcePanelOpen(false)} className="rounded-2xl border border-white/20 bg-white/12 p-2 text-white/72 shadow-sm transition hover:bg-white/18">
@@ -1820,7 +1940,7 @@ export default function App() {
           <p className="mt-3 text-sm leading-7 text-slate-700">{scoreExplain}</p>
         ) : (
           <p className="hidden">
-            LA12 do score cha ac taoo ta ng. Baom Explain  LLM sinh giaoi thAch daa trAan evidence hin taoi.
+            Lý do score chưa được tạo tự động. Bấm Explain để LLM sinh giải thích dựa trên evidence hiện tại.
           </p>
         )}
         {scoreFactors.length ? (
@@ -2476,7 +2596,7 @@ function renderEarlyForecastPanel(options = {}) {
             </div>
           </div>
           <SourceBarChart
-            sources={buildSourceCoverageDistribution(sourceRoster)}
+            sources={buildSourceCoverageDistribution()}
           />
         </div>
 
@@ -2516,12 +2636,8 @@ function renderEarlyForecastPanel(options = {}) {
 
         {renderEarlyForecastPanel({ limit: 6 })}
 
-        {renderGoogleTrendsPanel({ limit: 8 })}
-
         {overview.intelligence ? (
-          <div className="grid gap-4 xl:grid-cols-3">
-            {renderWhatChangedPanel(overview.intelligence, { title: 'What changed since last crawl', badge: `${overview.metrics.activeAlerts} alerts`, badgeTone: 'warning' })}
-            {renderSourceSplitPanel(overview.intelligence, { title: 'Source mix across coverage' })}
+          <div className="grid gap-4">
             {renderNarrativePanel(overview.intelligence, { title: 'Dominant market narrative' })}
           </div>
         ) : null}
@@ -2591,11 +2707,11 @@ function renderEarlyForecastPanel(options = {}) {
                 {renderScoreExplainPanel(overview.topCompany, { title: 'Score' })}
               </div>
             ) : (
-              <p className="text-sm text-slate-500">Cha cA3 da  liu.</p>
+              <p className="text-sm text-slate-500">Chưa có dữ liệu.</p>
             )}
           </Panel>
 
-          <Panel title="Latest alerts" description="Danh sAch caon review ngay.">
+          <Panel title="Latest alerts" description="Danh sách cần review ngay.">
             <div className="space-y-3">
               {(overview.latestAlerts || []).map((alert) => (
                 <div key={alert.id} className="data-tile rounded-2xl border px-4 py-4">
@@ -2615,27 +2731,6 @@ function renderEarlyForecastPanel(options = {}) {
             </div>
           </Panel>
         </div>
-
-        <Panel title="Latest market coverage" description="CAc b i mi nhaot trong knowledge base.">
-          <div className="grid gap-3 xl:grid-cols-3">
-            {(overview.latestNews || []).map((article) => (
-              <a
-                key={article.id}
-                href={article.article_url}
-                target="_blank"
-                rel="noreferrer"
-                className="data-tile rounded-2xl border px-4 py-4 transition hover:border-emerald-300/36 hover:shadow-[0_18px_40px_-28px_rgba(143,214,165,0.24)]"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <Badge tone="info">{article.source_name}</Badge>
-                  <ChevronRight className="size-4 text-slate-400" />
-                </div>
-                <p className="mt-3 text-sm font-medium leading-6 text-slate-900">{article.title}</p>
-                <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-600">{article.description_text}</p>
-              </a>
-            ))}
-          </div>
-        </Panel>
       </div>
     )
   }
@@ -2658,7 +2753,7 @@ function renderEarlyForecastPanel(options = {}) {
             <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Market intelligence workspace</p>
             <h1 className="mt-2 text-4xl font-semibold tracking-tight text-slate-900">Overview</h1>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-              Trang iau h nh taop trung v o tAn hiu mi nhaot, vaon gia  to n b lch sa A ingest.
+              Trang điều hành tập trung vào tín hiệu mới nhất, vận hành giá trị từ toàn bộ lịch sử đã ingest.
             </p>
           </div>
           <div className="flex gap-3">
@@ -2677,7 +2772,7 @@ function renderEarlyForecastPanel(options = {}) {
               disabled={crawlStatus === 'loading'}
               className="animated-gradient rounded-2xl bg-[linear-gradient(90deg,rgba(14,165,233,1),rgba(59,130,246,0.96),rgba(217,70,239,0.92),rgba(251,146,60,0.92))] px-4 py-3 text-sm font-medium text-white shadow-[0_18px_34px_-18px_rgba(14,165,233,0.72)] transition-transform duration-200 hover:-translate-y-0.5 disabled:opacity-60"
             >
-              {crawlStatus === 'loading' ? 'Aang crawl...' : 'Run Crawl'}
+              {crawlStatus === 'loading' ? 'Đang crawl...' : 'Run Crawl'}
               </button>
             ) : null}
           </div>
@@ -2768,11 +2863,11 @@ function renderEarlyForecastPanel(options = {}) {
                 {renderScoreExplainPanel(overview.topCompany, { title: 'Why the top score' })}
               </div>
             ) : (
-              <p className="text-sm text-slate-500">Cha cA3 da  liu.</p>
+              <p className="text-sm text-slate-500">Chưa có dữ liệu.</p>
             )}
           </Panel>
 
-          <Panel title="Latest alerts" description="Danh sAch caon review ngay.">
+          <Panel title="Latest alerts" description="Danh sách cần review ngay.">
             <div className="space-y-3">
               {(overview.latestAlerts || []).map((alert) => (
                 <div key={alert.id} className="rounded-2xl border border-slate-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(255,247,237,0.9),rgba(250,245,255,0.82))] px-4 py-4 shadow-[0_16px_34px_-28px_rgba(15,23,42,0.22)]">
@@ -2792,60 +2887,21 @@ function renderEarlyForecastPanel(options = {}) {
             </div>
           </Panel>
         </div>
-
-        <Panel title="Latest market coverage" description="CAc b i mi nhaot trong knowledge base.">
-          <div className="grid gap-3 xl:grid-cols-3">
-            {(overview.latestNews || []).map((article) => (
-              <a
-                key={article.id}
-                href={article.article_url}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-orange-50/40 px-4 py-4 transition hover:border-sky-200 hover:shadow-[0_18px_40px_-28px_rgba(14,165,233,0.35)]"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <Badge tone="info">{article.source_name}</Badge>
-                  <ChevronRight className="size-4 text-slate-400" />
-                </div>
-                <p className="mt-3 text-sm font-medium leading-6 text-slate-900">{article.title}</p>
-                <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-600">{article.description_text}</p>
-              </a>
-            ))}
-          </div>
-        </Panel>
       </div>
     )
   }
 
   function renderCompaniesV2() {
-    const highRiskCompanies = companies.filter((company) => company.forecastRisk7d === 'high').length
-    const watchlistCompanies = companies.filter((company) => watchlistKeys.includes(company.key)).length
-    const volumeLeader = [...companies].sort((left, right) => (right.mentions || 0) - (left.mentions || 0))[0] || null
     return (
-      <div className="space-y-5">
-        <div className="border-b border-slate-200 pb-5">
-          <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Tracked companies</p>
-          <h1 className="font-display mt-2 text-4xl font-semibold tracking-tight text-slate-900">Companies</h1>
-          <p className="hidden">
-            Company board n y u tiAan tc  ac: thaoy ngay brand nA3ng, caon review v  ang gia  trong watchlist.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Badge tone="info">{companies.length} total companies</Badge>
-            <Badge tone="warning">{highRiskCompanies} high 7d forecast</Badge>
-            <Badge tone="default">{watchlistCompanies} in watchlist</Badge>
-            {volumeLeader ? <Badge tone="positive">Volume leader {volumeLeader.name}</Badge> : null}
-          </div>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-3">
-          <ShellStat label="Tracked" value={companies.length} note="All companies" />
-          <ShellStat label="High risk" value={highRiskCompanies} note="7d forecast" />
-          <ShellStat label="Watchlist" value={watchlistCompanies} note="Pinned" />
-        </div>
-
-        <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
-          <Panel title="Company list" description="Sort, filter, select.">
-            <div className="space-y-4">
+      <div className="flex min-h-0 flex-col xl:h-[calc(100vh-126px)] xl:overflow-hidden">
+        <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[0.9fr_1.1fr] xl:overflow-hidden">
+          <Panel
+            title="Company list"
+            description="Sort, filter, select."
+            className="min-h-0 xl:flex xl:flex-col xl:overflow-hidden"
+            bodyClassName="min-h-0 xl:flex-1 xl:overflow-hidden"
+          >
+            <div className="flex h-full min-h-0 flex-col gap-4">
               <div className="rounded-[24px] border border-slate-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.92),rgba(245,247,250,0.88))] p-4">
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div>
@@ -2890,7 +2946,7 @@ function renderEarlyForecastPanel(options = {}) {
                 </select>
               </div>
 
-              <div className="space-y-3">
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-2 [scrollbar-color:#059669_rgba(15,23,42,0.14)] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-emerald-500/70 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-slate-950/10">
                 {paginatedCompanies.map((company, index) => {
                   const isSelected = selectedCompany?.key === company.key
                   const boardRank = (companyPage - 1) * companyPageSize + index + 1
@@ -3010,6 +3066,8 @@ function renderEarlyForecastPanel(options = {}) {
           <Panel
             title={selectedCompany ? selectedCompany.name : 'Company detail'}
             description={selectedCompany ? `${selectedCompany.industry}  ${selectedCompany.sentimentLabel}` : 'Ch?n m?t company'}
+            className="min-h-0 xl:sticky xl:top-5 xl:flex xl:max-h-full xl:flex-col xl:overflow-hidden"
+            bodyClassName="min-h-0 xl:flex-1 xl:overflow-y-auto xl:overscroll-contain xl:pr-3 xl:[scrollbar-color:#059669_rgba(15,23,42,0.14)] xl:[scrollbar-width:thin] xl:[&::-webkit-scrollbar]:w-2.5 xl:[&::-webkit-scrollbar-thumb]:rounded-full xl:[&::-webkit-scrollbar-thumb]:bg-emerald-500/60 xl:[&::-webkit-scrollbar-track]:rounded-full xl:[&::-webkit-scrollbar-track]:bg-slate-950/10"
             action={selectedCompany ? (
               <div className="flex flex-wrap justify-end gap-2">
                 <button
@@ -3221,7 +3279,7 @@ function renderEarlyForecastPanel(options = {}) {
                 </CollapsiblePanel>
               </div>
             ) : (
-              <p className="text-sm text-slate-500">KhA ng cA3 company ac chan.</p>
+              <p className="text-sm text-slate-500">Không có company được chọn.</p>
             )}
           </Panel>
         </div>
@@ -3236,12 +3294,12 @@ function renderEarlyForecastPanel(options = {}) {
           <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Tracked companies</p>
           <h1 className="font-display mt-2 text-4xl font-semibold tracking-tight text-slate-900">Companies</h1>
           <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-            Da  liu company laoy trac tiaop ta articles A crawl, vaa theo dAi tAn hiu mi vaa gia  lch sa mention cA  phAn tAch khA ng b maot maoch.
+            Dữ liệu company lấy trực tiếp từ articles đã crawl, vừa theo dõi tín hiệu mới vừa giữ lịch sử mention để phân tích không bị mơ hồ.
           </p>
         </div>
 
         <div className="grid gap-4 xl:grid-cols-[0.88fr_1.12fr]">
-          <Panel title="Company list" description="Hin th recent mentions / lifetime mentions.">
+          <Panel title="Company list" description="Hiển thị recent mentions / lifetime mentions.">
             <div className="space-y-2">
               <div className="flex flex-wrap gap-2 pb-2">
                 <select
@@ -3448,7 +3506,7 @@ function renderEarlyForecastPanel(options = {}) {
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-slate-500">KhA ng cA3 company ac chan.</p>
+              <p className="text-sm text-slate-500">Không có company được chọn.</p>
             )}
           </Panel>
         </div>
@@ -3463,14 +3521,14 @@ function renderEarlyForecastPanel(options = {}) {
           <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Risk monitoring</p>
           <h1 className="font-display mt-2 text-4xl font-semibold tracking-tight text-slate-900">Alerts</h1>
           <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-            Alert queue ac sinh ta company analytics thaot, cA3 tAnh aon da  liu mi v  lch sa mention.
+            Alert queue được sinh từ company analytics, có tính đến dữ liệu mới và lịch sử mention.
           </p>
         </div>
 
         <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-          <Panel title="Alert queue" description="CAc company caon analyst review.">
+          <Panel title="Alert queue" description="Các company cần analyst review.">
             <div className="space-y-3">
-              {alerts.map((alert) => (
+              {paginatedAlerts.map((alert) => (
                 <button
                   key={alert.id}
                   type="button"
@@ -3495,23 +3553,36 @@ function renderEarlyForecastPanel(options = {}) {
                         <Badge tone="warning">Negative ratio {formatPercent(alert.negativeRatio)}</Badge>
                       </div>
                       <p className="mt-3 text-sm leading-7 text-slate-500">{alert.forecastSummary}</p>
-                      <div className="mt-4 max-w-[220px]">
-                        <SparkBars
-                          tone={toneForSeverity(alert.forecastRisk7d || alert.severity)}
-                          values={[
-                            alert.mentions || 1,
-                            alert.lifetimeMentions || 1,
-                            alert.score || 1,
-                            alert.forecastConfidence ? alert.forecastConfidence * 8 : 2,
-                            alert.negativeSignals || 1,
-                          ]}
-                        />
-                      </div>
+                      <AlertSignalGlyph alert={alert} />
                     </div>
                     <Badge tone={toneForSeverity(alert.severity)}>{alert.severity}</Badge>
                   </div>
                 </button>
               ))}
+
+              <div className="flex items-center justify-between gap-3 pt-2">
+                <p className="text-xs text-slate-500">
+                  Page {alertPage} / {totalAlertPages}  {alerts.length} alerts
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAlertPage((current) => Math.max(1, current - 1))}
+                    disabled={alertPage === 1}
+                    className="rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-xs text-slate-600 transition hover:border-sky-200 disabled:opacity-40"
+                  >
+                    Prev
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAlertPage((current) => Math.min(totalAlertPages, current + 1))}
+                    disabled={alertPage === totalAlertPages}
+                    className="rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-xs text-slate-600 transition hover:border-sky-200 disabled:opacity-40"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
             </div>
           </Panel>
 
@@ -3560,7 +3631,6 @@ function renderEarlyForecastPanel(options = {}) {
                 </div>
                 {renderActionablePanel(selectedAlert)}
                 {renderScoreExplainPanel(selectedAlert, { title: 'Why this alert score' })}
-                {renderEvidencePanel(selectedAlert)}
               </div>
             ) : null}
           </div>
@@ -3955,7 +4025,7 @@ function _renderCompare() {
           <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Watchlist benchmarking</p>
           <h1 className="font-display mt-2 text-4xl font-semibold tracking-tight text-slate-900">Compare</h1>
           <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-            So sAnh ti a 3 thng hiu theo mentions, negative ratio, forecast risk v  top topics.
+            So sánh tối đa 3 thương hiệu theo mentions, negative ratio, forecast risk và top topics.
           </p>
         </div>
 
@@ -4089,6 +4159,118 @@ function _renderCompare() {
     )
   }
 
+  function renderLoginScreen() {
+    return (
+      <div className="app-shell flex min-h-screen items-center justify-center bg-transparent px-4 py-6 text-slate-900">
+        <div className="grid w-full max-w-[1080px] overflow-hidden rounded-[36px] border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(240,249,255,0.94),rgba(255,247,237,0.9))] shadow-[0_36px_120px_-48px_rgba(15,23,42,0.55)] backdrop-blur-xl lg:grid-cols-[1.05fr_0.95fr]">
+          <section className="relative hidden min-h-[620px] overflow-hidden bg-[linear-gradient(145deg,rgba(15,23,42,0.98),rgba(14,116,144,0.94),rgba(180,83,9,0.86))] px-8 py-8 text-white lg:block">
+            <div className="absolute inset-0 opacity-[0.16]" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.28) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.28) 1px, transparent 1px)', backgroundSize: '44px 44px' }} />
+            <div className="relative z-[1] flex h-full flex-col justify-between">
+              <div>
+                <div className="flex size-14 items-center justify-center rounded-[22px] border border-white/20 bg-white/12 shadow-[0_22px_48px_-26px_rgba(255,255,255,0.45)] backdrop-blur">
+                  <Sparkles className="size-6" />
+                </div>
+                <p className="mt-10 text-xs font-semibold uppercase tracking-[0.28em] text-cyan-100/80">SentimentX Console</p>
+                <h1 className="font-display mt-4 max-w-[520px] text-5xl font-semibold leading-[1.02] tracking-tight">
+                  Market intelligence access gate
+                </h1>
+                <p className="mt-5 max-w-[440px] text-sm leading-7 text-cyan-50/78">
+                  Theo dõi sentiment, cảnh báo rủi ro và tín hiệu thị trường trong một không gian vận hành tập trung.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  ['24h', 'alert pulse'],
+                  ['7d', 'risk view'],
+                  ['AI', 'briefing'],
+                ].map(([value, label]) => (
+                  <div key={value} className="rounded-[22px] border border-white/15 bg-white/10 px-4 py-4 backdrop-blur">
+                    <p className="font-display text-2xl font-semibold">{value}</p>
+                    <p className="mt-1 text-[11px] uppercase tracking-[0.14em] text-cyan-50/62">{label}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <section className="px-5 py-6 sm:px-9 sm:py-10">
+            <div className="mx-auto flex min-h-[560px] max-w-[420px] flex-col justify-center">
+              <div className="mb-8 flex items-center gap-3 lg:hidden">
+                <div className="flex size-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(15,23,42,1),rgba(14,116,144,0.92),rgba(180,83,9,0.88))] text-white">
+                  <Sparkles className="size-5" />
+                </div>
+                <div>
+                  <p className="font-display text-2xl font-semibold text-slate-950">SentimentX</p>
+                  <p className="text-sm text-slate-500">Enterprise market intelligence</p>
+                </div>
+              </div>
+
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Secure workspace</p>
+              <h2 className="font-display mt-3 text-4xl font-semibold tracking-tight text-slate-950">Đăng nhập</h2>
+
+              <form onSubmit={handleLoginSubmit} className="mt-8 space-y-4">
+                <label className="block">
+                  <span className="text-xs font-medium uppercase tracking-[0.16em] text-slate-500">Tài khoản</span>
+                  <span className="mt-2 flex items-center gap-3 rounded-[22px] border border-slate-200 bg-white px-4 py-3 shadow-[0_18px_34px_-30px_rgba(15,23,42,0.35)] focus-within:border-cyan-300">
+                    <User className="size-4 text-slate-500" />
+                    <input
+                      value={loginForm.username}
+                      onChange={(event) => {
+                        setLoginForm((current) => ({ ...current, username: event.target.value }))
+                        setLoginError('')
+                      }}
+                      autoComplete="username"
+                      className="w-full bg-transparent text-sm font-semibold text-black caret-slate-950 outline-none placeholder:text-slate-500"
+                      placeholder="Nhập tài khoản"
+                    />
+                  </span>
+                </label>
+
+                <label className="block">
+                  <span className="text-xs font-medium uppercase tracking-[0.16em] text-slate-500">Mật khẩu</span>
+                  <span className="mt-2 flex items-center gap-3 rounded-[22px] border border-slate-200 bg-white px-4 py-3 shadow-[0_18px_34px_-30px_rgba(15,23,42,0.35)] focus-within:border-cyan-300">
+                    <Lock className="size-4 text-slate-500" />
+                    <input
+                      value={loginForm.password}
+                      onChange={(event) => {
+                        setLoginForm((current) => ({ ...current, password: event.target.value }))
+                        setLoginError('')
+                      }}
+                      type="password"
+                      autoComplete="current-password"
+                      className="w-full bg-transparent text-sm font-semibold text-black caret-slate-950 outline-none placeholder:text-slate-500"
+                      placeholder="Nhập mật khẩu"
+                    />
+                  </span>
+                </label>
+
+                {loginError ? (
+                  <div className="rounded-[18px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                    {loginError}
+                  </div>
+                ) : null}
+
+                <button
+                  type="submit"
+                  className="inline-flex h-13 w-full items-center justify-center gap-2 rounded-[22px] bg-[linear-gradient(90deg,rgba(15,23,42,1),rgba(14,116,144,0.96),rgba(180,83,9,0.9))] px-5 text-sm font-semibold text-white shadow-[0_24px_46px_-22px_rgba(14,116,144,0.72)] transition hover:-translate-y-0.5"
+                >
+                  <LogIn className="size-4" />
+                  Log in
+                </button>
+              </form>
+
+            </div>
+          </section>
+        </div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return renderLoginScreen()
+  }
+
   return (
     <div className="app-shell min-h-screen bg-transparent px-4 py-4 text-slate-900 lg:px-6">
       {mobileNavOpen ? (
@@ -4123,6 +4305,18 @@ function _renderCompare() {
             </div>
           </div>
 
+          <div className="border-b border-slate-200/80 px-4 py-4">
+            <div className="flex items-center gap-3 rounded-[24px] border border-slate-200 bg-white/80 px-4 py-3 shadow-[0_18px_34px_-28px_rgba(15,23,42,0.24)]">
+              <div className="flex size-10 items-center justify-center rounded-full bg-[linear-gradient(135deg,rgba(14,116,144,0.96),rgba(15,23,42,0.96))] text-white">
+                <User className="size-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-950">BAV User</p>
+                <p className="text-xs text-slate-500">Authenticated</p>
+              </div>
+            </div>
+          </div>
+
           <div className="space-y-2 px-4 py-5">{renderNavButtons()}</div>
 
           <div className="mt-auto hidden px-4 pb-4">
@@ -4130,7 +4324,7 @@ function _renderCompare() {
               <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Workspace</p>
               <p className="font-display mt-3 text-xl font-semibold text-slate-950">BAV Enterprise</p>
               <p className="mt-2 text-sm leading-7 text-slate-600">
-                Dashboard u tiAan workflow thaot, nhiau m u hn nhng vaon data-dense. Da  liu mi v o khA ng l m maot da  liu cA.
+                Dashboard ưu tiên workflow thật, nhiều màu hơn nhưng vẫn data-dense. Dữ liệu mới vào không làm mất dữ liệu cũ.
               </p>
             </div>
           </div>
@@ -4142,6 +4336,9 @@ function _renderCompare() {
               <button type="button" onClick={() => setMobileNavOpen(true)} className="rounded-2xl border border-slate-200 bg-white/80 p-2 text-slate-600 lg:hidden">
                 <PanelLeft className="size-5" />
               </button>
+              <div className="flex size-10 items-center justify-center rounded-full bg-[linear-gradient(135deg,rgba(14,116,144,0.96),rgba(15,23,42,0.96))] text-white shadow-[0_14px_28px_-18px_rgba(15,23,42,0.7)] lg:hidden">
+                <User className="size-5" />
+              </div>
               <div>
                 <p className="text-xs uppercase tracking-[0.18em] text-slate-500">SentimentX Console</p>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -4153,7 +4350,15 @@ function _renderCompare() {
                 </p>
               </div>
             </div>
-            <div className="relative hidden md:block">
+            <div className="relative hidden items-center gap-3 md:flex">
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 px-3 py-2.5 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 shadow-[0_18px_34px_-26px_rgba(15,23,42,0.22)] transition hover:border-rose-200 hover:text-rose-600"
+              >
+                <LogOut className="size-4" />
+                Logout
+              </button>
               <div className="search-shell flex min-w-[360px] items-center gap-2 rounded-2xl px-4 py-2.5 text-sm text-slate-500 shadow-[0_18px_34px_-24px_rgba(15,23,42,0.2)]">
                 <Search className="size-4" />
                 <input
@@ -4256,6 +4461,14 @@ function _renderCompare() {
 
           <div className="border-b border-slate-200/80 px-4 py-4 md:hidden">
             <div className="flex gap-2 overflow-x-auto pb-1">{renderNavButtons('compact')}</div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white/80 px-3 py-2.5 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 shadow-[0_18px_34px_-26px_rgba(15,23,42,0.18)]"
+            >
+              <LogOut className="size-4" />
+              Logout
+            </button>
             <div className="search-shell mt-4 flex items-center gap-2 rounded-2xl px-4 py-3 text-sm text-slate-500 shadow-[0_18px_34px_-24px_rgba(15,23,42,0.2)]">
               <Search className="size-4" />
               <input
